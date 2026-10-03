@@ -22,11 +22,12 @@ liturgical review.
 
 ## Screenshots
 
-Offline Mac previews with synthetic content and the built-in placeholder character.
-Watches and What’s Next appear farther down the scrollable Muse view.
+The Muse screenshot shows the running Mac preview with Geraldo’s delivered avatar
+and current caption. The Hours screenshot uses the offline prayer pack. Watches
+and What’s Next appear farther down the scrollable Muse view.
 
 <p>
-  <img src="docs/images/mac-muse-preview.png" width="320" alt="Muse preview with placeholder avatar, compact hour timeline, and Watches and Next up tabs">
+  <img src="docs/images/mac-muse-preview.png" width="320" alt="Live Muse preview showing Geraldo’s avatar and caption, compact hour timeline, and Watches and Next up tabs">
   <img src="docs/images/mac-hours-preview.png" width="320" alt="Hours preview with active-hour progress strip and Latin followed by English prayer text">
 </p>
 
@@ -76,13 +77,14 @@ keep it local and never upload it to GitHub or an issue.
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md). The included
 [muse-pocket skill](skills/muse-pocket/SKILL.md) covers pinned builds and safe SD updates.
-Only source, synthetic examples and public prayer data belong in commits. SDK tokens,
-pairing state, personal display payloads and private firmware stay local.
+Source, public prayer data, and explicitly shared screenshots belong in commits.
+SDK tokens, pairing state, private watch/event data and private firmware stay local.
 
 ## License and upstream
 
 Source retains [Apache-2.0](LICENSE) and the notices in [NOTICE](NOTICE).
 Divinum Officium-derived text retains its [MIT notice](tools/office/DIVINUM-LICENSE).
-No license-excluded SDK avatar or generated personal Muse character is bundled here.
+The SDK’s license-excluded Jollybot asset is not bundled. The README screenshot
+includes the author’s own Muse avatar, shared as an illustration outside the source-code license.
 This community fork is not an official Xteink or Meta product. Pairing also requires
 the [Gadget SDK Terms](https://gadgets.muse.ai/sdk-terms).

@@ -34,3 +34,7 @@ https://gadgets.muse.ai/sdk-terms
 This fork adds a Mac application preview and dated prayer-pack tooling.
 Divinum Officium-derived text in tools/office/office-pack.json retains the
 MIT license and copyright notice in tools/office/DIVINUM-LICENSE.
+
+The README Muse screenshot includes the author’s own Muse avatar, shared
+for illustration. The avatar artwork is outside the Apache 2.0 source-code
+license; private watch/event data and credentials are not included.
