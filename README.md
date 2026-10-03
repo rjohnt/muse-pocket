@@ -10,15 +10,13 @@ they have not been integrated into or verified on the reader.
 - **Muse avatar:** a large character image and short caption, updated by explicit Muse commands.
 - **Watches:** a curated list with per-item check times and stale-data indicators.
 - **What’s Next:** the next event, weekday, local countdown, and expiry.
-- **Hours:** open the compact timeline to read Latin and English, with distinct typography,
-  an active-hour indicator, and header controls that scroll away with the content.
-
-The Hours view reads offline dated prayer data independently of Muse. Its bundled
-pack covers **October 2–November 2, 2026**, using Divinum Officium’s general
-**Monastic – 1963** calendar. Clear Creek local propers are not verified. The modern
-Liturgy of the Hours setting exists, but its prayer texts are not bundled. Missing
-dates and traditions are shown as unavailable; extraction and alignment still need
-liturgical review.
+- **Hours:** the Liturgy of the Hours is a daily cycle of Christian prayer at set times.
+  Follow the active prayer hour and read Latin alongside English in a focused,
+  scrollable view that works offline, independently of Muse. The preview includes
+  Benedictine prayers for October 2–November 2, 2026, from Divinum Officium’s general
+  Monastic – 1963 calendar; Clear Creek’s local variations and text alignment still
+  need review. Modern Hours texts are not yet included, and unavailable dates or
+  traditions are clearly marked.
 
 ## Screenshots
 
