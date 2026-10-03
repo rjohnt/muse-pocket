@@ -27,7 +27,7 @@ and current caption. The Hours screenshot uses the offline prayer pack. Watches
 and What’s Next appear farther down the scrollable Muse view.
 
 <p>
-  <img src="docs/images/mac-muse-preview.png" width="320" alt="Live Muse preview showing Geraldo’s avatar and caption, compact hour timeline, and Watches and Next up tabs">
+  <img src="docs/images/mac-muse-live-preview.png" width="320" alt="Live Muse preview showing Geraldo’s avatar and caption, compact hour timeline, and Watches and Next up tabs">
   <img src="docs/images/mac-hours-preview.png" width="320" alt="Hours preview with active-hour progress strip and Latin followed by English prayer text">
 </p>
 
