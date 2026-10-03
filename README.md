@@ -1,103 +1,88 @@
-# Muse Pocket
+# Muse Pocket · Mac preview and Hours
 
-![Muse Pocket displaying a Muse character and status, handheld and attached to an orange iPhone](docs/images/muse-pocket-hero.jpg)
+A development fork of [viticci/muse-pocket](https://github.com/viticci/muse-pocket),
+with a Mac preview for a personal e-paper companion. The original firmware targets
+the **Xteink X4 Pro**. This fork’s new application features currently run on the Mac;
+they have not been integrated into or verified on the reader.
 
-Turn an **Xteink X4 Pro** e-reader into a small e-paper companion for your Muse.
-It shows your Muse's character, name and short status updates, with settings for
-brightness, warmth, refresh speed, orientation and sleep.
+## Preview features
 
-This is a community project built on the
-[Muse Gadget SDK](https://github.com/facebookincubator/muse-gadget-sdk).
-It is not an official Xteink or Meta product.
+- **Muse avatar:** a large character image and short caption, updated by explicit Muse commands.
+- **Watches:** a curated list with per-item check times and stale-data indicators.
+- **What’s Next:** the next event, weekday, local countdown, and expiry.
+- **Hours:** open the compact timeline to read Latin and English, with distinct typography,
+  an active-hour indicator, and header controls that scroll away with the content.
 
-## What you need
+The Hours view reads offline dated prayer data independently of Muse. Its bundled
+pack covers **October 2–November 2, 2026**, using Divinum Officium’s general
+**Monastic – 1963** calendar. Clear Creek local propers are not verified. The modern
+Liturgy of the Hours setting exists, but its prayer texts are not bundled. Missing
+dates and traditions are shown as unavailable; extraction and alignment still need
+liturgical review.
 
-- An **Xteink X4 Pro**. The ordinary X4 and X3 use different hardware.
-- **CrossPoint 1.6.5 for X4 Pro** already installed on the reader.
-- A microSD card and a Wi-Fi network, or a way to copy files onto the card.
-- The Muse app, Developer mode enabled, and your own
-  [Muse SDK token](https://gadgets.muse.ai/settings/sdk-tokens).
-- A computer with **ESP-IDF 6.0.1**, Espressif's firmware build tools.
+## Screenshots
 
-The installation uses CrossPoint's SD firmware updater, so it does not need the
-reader's magnetic USB adapter. Get CrossPoint through its
-[official installer](https://crosspointreader.com); select the **X4 Pro** build.
+Offline Mac previews with synthetic content and the built-in placeholder character.
+Watches and What’s Next appear farther down the scrollable Muse view.
 
-## Start here
+<p>
+  <img src="docs/images/mac-muse-preview.png" width="320" alt="Muse preview with placeholder avatar, compact hour timeline, and Watches and Next up tabs">
+  <img src="docs/images/mac-hours-preview.png" width="320" alt="Hours preview with active-hour progress strip and Latin followed by English prayer text">
+</p>
 
-1. [Build and add your token](docs/build.md). Building creates an uncredentialed
-   image; a separate local step adds your token to a private copy.
-2. [Install, pair and recover](docs/install.md). Keep CrossPoint in the other
-   firmware slot so you can return to it.
-3. [Use the display and commands](docs/usage.md).
+## Try it on a Mac
 
-Every user supplies their own SDK token. No account, Muse name, Wi-Fi network or
-computer address is built into this project. **A packaged firmware file contains
-your token: keep it private and never attach it to an issue or release.** The
-repository contains source only; you do not need someone else's firmware file.
+Clone this fork and [muse-gadget-macos](https://github.com/rjohnt/muse-gadget-macos)
+next to each other. From this checkout:
 
-## What appears on the screen
+```sh
+uv venv .venv-preview --python 3.12
+uv pip install --python .venv-preview/bin/python -e '../muse-gadget-macos[test]'
+.venv-preview/bin/python tools/mac_preview/run.py preview
+```
 
-The top shows the Muse's name and battery level. The middle holds a **480×480**
-character image. Up to four lines of status text sit below it. Connection state
-and the settings shortcut appear at the bottom.
+The offline preview needs no token, Bluetooth, or reader. For pairing and real Muse
+updates, follow the [Mac preview guide](tools/mac_preview/README.md). The separate
+Mac adapter owns CoreBluetooth pairing and the encrypted SDK session; this fork
+owns the Pocket UI and commands.
 
-After pairing, the reader sends your Muse one message asking it to display its
-character and keep the caption current. Muse supplies these updates by calling
-the gadget's commands; the firmware does not independently know what Muse is
-doing. The original neutral display icon stays visible until an image arrives.
+```sh
+.venv-preview/bin/python -m pytest tools/mac_preview
+```
 
-## Pairing and sending updates
+See [prayer-pack provenance and regeneration](tools/office/README.md). This is a
+development snapshot, not a complete perpetual liturgical calendar or a ready-to-flash
+Hours release.
 
-Pairing in the Muse app confirms access to your Muse and lets you choose a Wi-Fi
-network. After connecting, ask your Muse to draw its character and update the
-status caption. The [command guide](docs/usage.md) explains the image and text
-commands, including what to ask if the first update is missing.
+## Existing X4 Pro firmware
 
-The screenshots below show the access confirmation, Wi-Fi selection and a chat
-request to send a character and status to the display.
+The inherited firmware displays a Muse character and caption, with brightness,
+warmth, orientation, refresh and sleep settings. Its upstream hardware validation
+does not validate this fork’s new preview features.
 
-![Muse app screenshots showing access confirmation, Wi-Fi selection and a request to update the Muse Pocket character and status](docs/images/muse-pocket-pairing-and-updates.jpg)
+You need an **X4 Pro**, **CrossPoint 1.6.5 for X4 Pro** in the recovery slot, a microSD
+card, Wi-Fi, Muse Developer mode, your own SDK token, and **ESP-IDF 6.0.1**.
+The X3 and ordinary X4 are not supported by this firmware.
 
-## Buttons
+1. [Build and privately add your token](docs/build.md).
+2. [Install, pair and recover](docs/install.md) using CrossPoint’s **app-only SD updater**.
+3. [Use the existing firmware commands](docs/usage.md).
 
-| Button | Main screen | Settings |
-| --- | --- | --- |
-| Left | Confirm pairing; retry setup | SDK setup control |
-| Right | Open settings | Select the next row |
-| Power | Clean refresh; hold 3 seconds to sleep | Change the selected setting |
+Keep the bootloader, partition table and CrossPoint recovery slot intact. Remote
+firmware updates remain disabled. A packaged firmware image contains your token:
+keep it local and never upload it to GitHub or an issue.
 
-To return to the e-reader, select **Return to CrossPoint** and hold Power for
-3 seconds. You can also hold **Right during startup**. See the
-[recovery guide](docs/install.md#return-to-crosspoint) before updating.
-
-## Current support
-
-The X4 Pro port has been used on a physical SSD1677 reader with successful Muse
-pairing, character/status display and settings. The generic public build is
-compiled and tested separately. UC8179 and UC8279 panel drivers are included and
-probed, but those variants have not been physically verified by this project.
-
-Text currently uses an ASCII font: accented characters and emoji appear as `?`.
-Images are black and white with dithering. Sleep preserves the screen but stops
-live updates. The character is held in memory and requested again after restart.
-Remote firmware updates are disabled to preserve the CrossPoint recovery slot.
-
-## For contributors and coding agents
+## Development and privacy
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md). The included
-[muse-pocket skill](skills/muse-pocket/SKILL.md) covers building, troubleshooting,
-token handling and safe app-only updates. Copy the `skills/muse-pocket` directory
-to your agent's skill directory, or point your agent at its `SKILL.md` directly.
-No personal tools or secret-manager integration are required.
+[muse-pocket skill](skills/muse-pocket/SKILL.md) covers pinned builds and safe SD updates.
+Only source, synthetic examples and public prayer data belong in commits. SDK tokens,
+pairing state, personal display payloads and private firmware stay local.
 
-## License and upstream code
+## License and upstream
 
-Source is under [Apache-2.0](LICENSE), except the dependencies listed in
-[NOTICE](NOTICE). X4 Pro display drivers come from
-[FreeInk](https://github.com/Free-Ink/freeink-sdk) under MIT; the font and MP3
-decoder retain their original licenses. The SDK's license-excluded Jollybot art
-is not included; the default display icon is original Apache-2.0 source.
-
-Muse pairing also requires accepting the
-[Gadget SDK Terms](https://gadgets.muse.ai/sdk-terms).
+Source retains [Apache-2.0](LICENSE) and the notices in [NOTICE](NOTICE).
+Divinum Officium-derived text retains its [MIT notice](tools/office/DIVINUM-LICENSE).
+No license-excluded SDK avatar or generated personal Muse character is bundled here.
+This community fork is not an official Xteink or Meta product. Pairing also requires
+the [Gadget SDK Terms](https://gadgets.muse.ai/sdk-terms).

@@ -35,3 +35,12 @@ private/
 *.map
 *.tar.gz
 *.zip
+
+# Standalone Mac adapter has its own repository.
+mac-gadget/
+.playwright-mcp/
+
+# Local standalone adapter checkout (including an optional compatibility symlink).
+mac-gadget
+
+.venv-preview/

@@ -1,0 +1,14 @@
+name: Pocket application preview
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv venv --python 3.12
+      - name: Install pinned Mac adapter and test dependencies
+        run: uv pip install 'muse-gadget-macos[test] @ git+https://github.com/rjohnt/muse-gadget-macos.git@098532c00fe530933a92fe7266b9c83d420aa8aa'
+      - run: .venv/bin/python -m pytest tools/mac_preview -q

@@ -30,3 +30,7 @@ secure hardware. Muse Pocket's X4 Pro profile does not enable secure boot.
 
 Muse service access and pairing are also subject to the Gadget SDK Terms:
 https://gadgets.muse.ai/sdk-terms
+
+This fork adds a Mac application preview and dated prayer-pack tooling.
+Divinum Officium-derived text in tools/office/office-pack.json retains the
+MIT license and copyright notice in tools/office/DIVINUM-LICENSE.
