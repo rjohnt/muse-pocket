@@ -20,7 +20,10 @@ namespace {
 constexpr int LEFT = 24, RIGHT = W - 24, WIDE = RIGHT - LEFT;
 constexpr int RULE_Y = 44, HUD_Y = 52, TABS_Y = 738, CARD_TABS_Y = 96;
 constexpr int GEAR_X = 432, CLOSE_X = 392, ICON_Y = 11;
-constexpr int STRIP_L = 58, STRIP_R = 422, BODY_TOP = 204, BODY_BOTTOM = 756, FOOTER_Y = 768;
+constexpr int STRIP_L = 58, STRIP_R = 384, BODY_TOP = 186, REST_TOP = 110, BODY_BOTTOM = 756, FOOTER_Y = 768;
+// The beads at the end of the hour strip open the common prayers.
+constexpr int BEADS_L = 388, BEADS_R = 424, PRAYER_TOP = 116, PRAYER_REST = 58, LIST_TOP = 112, LIST_PITCH = 56;
+constexpr int PRAYERS_RITE = 2, MAX_PRAYERS = 11;
 constexpr int ROWS_Y = 96, ROW_PITCH = 56;
 constexpr uint8_t GREY = 0xb0;
 // Clear Creek's published ordinary schedule, minutes after local midnight.
@@ -114,14 +117,15 @@ void hud(Raster& r, const State& s, const Hours& h) {
     }
     r.dots(LEFT, HUD_Y + 32, WIDE);
 }
-int tab_split() { return LEFT + measure("Watches", Face::UI) + 14; }
+// Two tabs share the full width evenly, each label centred in its half.
 void tabs(Raster& r, int y, int selected) {
-    int second = tab_split() + 14;
-    r.text("Watches", LEFT, y);
-    r.text("Next up", second, y);
+    const char* labels[] = {"Watchlist", "Next up"};
+    for (int i = 0; i < 2; ++i) {
+        int x0 = i * W / 2, width = measure(labels[i], Face::UI);
+        r.text(labels[i], x0 + (W / 2 - width) / 2, y);
+        if (i == selected) r.rect(i == 0 ? LEFT : W / 2, y + 30, W / 2 - LEFT, 3);
+    }
     r.dots(LEFT, y + 32, WIDE);
-    if (selected == 0) r.rect(LEFT, y + 30, measure("Watches", Face::UI), 3);
-    if (selected == 1) r.rect(second, y + 30, measure("Next up", Face::UI), 3);
 }
 bool stale(const State& s, int64_t updated) { return s.clock_valid && s.now - updated >= 86400; }
 void stamp(Raster& r, const State& s, int64_t updated, int y) {
@@ -144,25 +148,93 @@ int paragraph(Raster& r, std::string_view s, int x, int y, Face face, int availa
 }
 std::string summary(const State& s) {
     const Cards* c = s.cards;
-    if (!c || !c->has_watches) return "No watch digest received yet.";
-    if (!c->watch_count) return "No open watches.";
+    if (!c || !c->has_watches) return "No watchlist received yet.";
+    if (!c->watch_count) return "Nothing on the watchlist.";
     char b[64];
-    std::snprintf(b, sizeof(b), "%d open watch%s", c->watch_count, c->watch_count == 1 ? "" : "es");
+    std::snprintf(b, sizeof(b), "%d on the watchlist", c->watch_count);
     return b;
 }
-void muse(Raster& r, uint8_t* canvas, const State& s, const Hours& h) {
-    header(r, s, "Muse", false);
-    hud(r, s, h);
-    if (s.avatar) std::memcpy(canvas + AVATAR_Y * W, s.avatar, static_cast<size_t>(AVATAR) * W);
-    std::string name = fit(s.name ? s.name : "", Face::Title, WIDE);
-    r.centred(name, 566, Face::Title);
-    auto lines = wrap(s.caption ? s.caption : "", Face::UI, WIDE);
-    size_t shown = std::min<size_t>(s.connected ? 4 : 3, lines.size());
-    for (size_t i = 0; i < shown; ++i) {
-        std::string line = i + 1 == shown && lines.size() > shown ? fit(lines[i] + " \xe2\x80\xa6", Face::UI, WIDE) : lines[i];
-        r.centred(line, 618 + static_cast<int>(i) * 25, Face::UI);
+// Draws the character as large as the space allows. The size comes from the
+// extent of its solid ink, ignoring faint shadows and stray specks, and it is
+// centred on its weight rather than its outline, so a shadow or an
+// outstretched arm does not push the body to one side. Enlargement is capped
+// so a small drawing does not turn to blocks.
+void character(uint8_t* canvas, const uint8_t* avatar, int top, int bottom) {
+    static int columns[W], rows[AVATAR];
+    std::memset(columns, 0, sizeof(columns));
+    std::memset(rows, 0, sizeof(rows));
+    for (int y = 0; y < AVATAR; ++y) for (int x = 0; x < W; ++x) {
+        int ink = 255 - avatar[y * W + x];
+        if (ink > 11) { columns[x] += ink; rows[y] += ink; }
     }
-    if (!s.connected) r.centred(fit(s.connection ? s.connection : "", Face::Small, WIDE), 702, Face::Small);
+    constexpr int SOLID = 600;  // about three black pixels in a line
+    int x0 = 0, x1 = W - 1, y0 = 0, y1 = AVATAR - 1;
+    while (x0 < W && columns[x0] < SOLID) ++x0;
+    while (x1 > x0 && columns[x1] < SOLID) --x1;
+    while (y0 < AVATAR && rows[y0] < SOLID) ++y0;
+    while (y1 > y0 && rows[y1] < SOLID) --y1;
+    int area = bottom - top;
+    if (x0 >= W || y0 >= AVATAR || area < 16) return;
+    int sw = x1 - x0 + 1, sh = y1 - y0 + 1;
+    int64_t weight = 0, moment = 0;
+    for (int x = x0; x <= x1; ++x) { weight += columns[x]; moment += static_cast<int64_t>(columns[x]) * x; }
+    // Fixed point, 1/256: destination pixels per source pixel.
+    int scale = std::min({(W - 16) * 256 / sw, area * 256 / sh, 448});
+    int dw = sw * scale / 256, dh = sh * scale / 256;
+    // Left edge of the solid ink on screen: centre of weight in the middle,
+    // moved only as far as needed to keep the whole body on the screen.
+    int centre = static_cast<int>(moment / weight);
+    int left = W / 2 - (centre - x0) * scale / 256;
+    left = std::clamp(left, std::min(8, W - 8 - dw), std::max(8, W - 8 - dw));
+    int start = top + (area - dh) / 2;
+    // Everything in the picture is drawn, including what lies outside the
+    // solid ink, as long as it lands inside the character's area.
+    for (int y = top; y < bottom; ++y) {
+        int fy = (y - start) * 65536 / scale + y0 * 256;
+        if (fy < 0 || fy >= (AVATAR - 1) * 256) continue;
+        int sy = fy / 256, wy = fy % 256;
+        const uint8_t* a = avatar + sy * W;
+        const uint8_t* b = a + W;
+        uint8_t* out = canvas + y * W;
+        for (int x = 0; x < W; ++x) {
+            int fx = (x - left) * 65536 / scale + x0 * 256;
+            if (fx < 0 || fx >= (W - 1) * 256) continue;
+            int sx = fx / 256, wx = fx % 256;
+            int upper = a[sx] * (256 - wx) + a[sx + 1] * wx, lower = b[sx] * (256 - wx) + b[sx + 1] * wx;
+            out[x] = static_cast<uint8_t>((upper * (256 - wy) + lower * wy) >> 16);
+        }
+    }
+}
+void muse(Raster& r, uint8_t* canvas, const State& s, const Hours& h) {
+    // Asleep, the screen keeps the name and last caption but drops what would
+    // go stale while it sits there: the clock, the battery and the tabs.
+    bool asleep = s.view == View::Sleeping;
+    if (asleep) { r.text("Muse", LEFT, 12); r.rect(LEFT, RULE_Y, WIDE, 2); }
+    else { header(r, s, "Muse", false); hud(r, s, h); }
+    // The name and caption sit directly above the tabs; the character takes
+    // whatever is left above them.
+    auto lines = wrap(s.caption ? s.caption : "", Face::UI, WIDE);
+    int shown = static_cast<int>(std::min<size_t>(4, lines.size()));
+    int floor_y = TABS_Y - 12;
+    if (!s.connected && !asleep) {
+        floor_y -= 22;
+        r.centred(fit(s.connection ? s.connection : "", Face::Small, WIDE), floor_y, Face::Small);
+        floor_y -= 4;
+    }
+    int caption_y = floor_y - shown * 25, name_y = caption_y - 50;
+    for (int i = 0; i < shown; ++i) {
+        std::string line = i + 1 == shown && lines.size() > static_cast<size_t>(shown) ? fit(lines[i] + " \xe2\x80\xa6", Face::UI, WIDE) : lines[i];
+        r.centred(line, caption_y + i * 25, Face::UI);
+    }
+    r.centred(fit(s.name ? s.name : "", Face::Title, WIDE), name_y, Face::Title);
+    if (s.avatar) character(canvas, s.avatar, asleep ? RULE_Y + 10 : AVATAR_Y + 4, name_y - 2);
+    if (asleep) {
+        r.dots(LEFT, TABS_Y - 4, WIDE);
+        std::string since = s.clock_valid ? "Asleep since " + date_text(s.now, s.h12) : std::string("Asleep");
+        r.centred(since, TABS_Y + 8, Face::Small);
+        r.centred("Press POWER to wake", TABS_Y + 30, Face::Small);
+        return;
+    }
     tabs(r, TABS_Y, -1);
     r.text(fit(summary(s), Face::Small, WIDE), LEFT, TABS_Y + 38, Face::Small);
 }
@@ -171,9 +243,9 @@ void watches(Raster& r, const State& s, const Hours& h) {
     hud(r, s, h);
     tabs(r, CARD_TABS_Y, 0);
     const Cards* c = s.cards;
-    if (!c || !c->has_watches) { r.text("No watch digest received yet.", LEFT, 150); return; }
+    if (!c || !c->has_watches) { r.text("No watchlist received yet.", LEFT, 150); return; }
     stamp(r, s, c->watches_updated, 144);
-    if (!c->watch_count) { r.text("No open watches.", LEFT, 186); return; }
+    if (!c->watch_count) { r.text("Nothing on the watchlist.", LEFT, 186); return; }
     int pages = page_count(s), page = std::clamp(s.page, 0, pages - 1), y = 182;
     for (int i = page * WATCHES_PER_PAGE; i < std::min(c->watch_count, (page + 1) * WATCHES_PER_PAGE); ++i) {
         const Watch& w = c->watches[i];
@@ -210,11 +282,13 @@ void next_up(Raster& r, const State& s, const Hours& h) {
 // Flows one office down the reading area. Without a raster it counts pages;
 // with one it draws `target` and stops once past it. Blocks may continue
 // across a page break.
-int flow(const pocket_office::Office& office, Raster* r, int target) {
-    int page = 0, y = BODY_TOP;
+int flow(const pocket_office::Office& office, Raster* r, int target, int first_top = BODY_TOP, int rest_top = REST_TOP) {
+    // Only the first page carries the title, so later pages start higher.
+    int page = 0, y = first_top;
+    auto top = [&] { return page == 0 ? first_top : rest_top; };
     auto place = [&](std::string_view line, Face face, int reserve) {
         int h = font(face).line_height;
-        if (y + h + reserve > BODY_BOTTOM && y > BODY_TOP) { ++page; y = BODY_TOP; }
+        if (y + h + reserve > BODY_BOTTOM && y > top()) { ++page; y = rest_top; }
         if (r && page > target) return false;
         if (r && page == target) r->text(line, LEFT, y, face);
         y += h;
@@ -225,17 +299,19 @@ int flow(const pocket_office::Office& office, Raster* r, int target) {
         if (!pack.text(office, i, t)) continue;
         if (t.kind == pocket_office::TextKind::Prayer || t.kind == pocket_office::TextKind::Phrase) {
             // Each Latin phrase sits directly above its own translation.
-            auto latin = wrap(t.latin, Face::Latin, WIDE), english = wrap(t.english, Face::English, WIDE);
+            // A prayer with no Latin is set in the larger face itself.
+            Face second = t.latin.empty() ? Face::Latin : Face::English;
+            auto latin = wrap(t.latin, Face::Latin, WIDE), english = wrap(t.english, second, WIDE);
             // A phrase and its translation stay on one page when they can.
-            int pair = static_cast<int>(latin.size()) * font(Face::Latin).line_height + static_cast<int>(english.size()) * font(Face::English).line_height;
-            if (y + pair > BODY_BOTTOM && y > BODY_TOP && pair <= BODY_BOTTOM - BODY_TOP) { ++page; y = BODY_TOP; }
+            int pair = static_cast<int>(latin.size()) * font(Face::Latin).line_height + static_cast<int>(english.size()) * font(second).line_height;
+            if (y + pair > BODY_BOTTOM && y > top() && pair <= BODY_BOTTOM - BODY_TOP) { ++page; y = rest_top; }
             for (auto& line : latin) if (!place(line, Face::Latin, 0)) return page;
-            for (auto& line : english) if (!place(line, Face::English, 0)) return page;
+            for (auto& line : english) if (!place(line, second, 0)) return page;
             y += t.kind == pocket_office::TextKind::Phrase ? 9 : 22;
         } else {
             std::string label(t.english.empty() ? t.latin : t.english);
             bool heading = t.kind == pocket_office::TextKind::Heading;
-            if (heading) { label = upper(label); if (y > BODY_TOP) y += 12; }
+            if (heading) { label = upper(label); if (y > top()) y += 12; }
             // Keep a heading with the start of what follows it.
             for (auto& line : wrap(label, Face::Small, WIDE)) if (!place(line, Face::Small, heading ? 90 : 0)) return page;
             y += heading ? 12 : 14;
@@ -244,11 +320,45 @@ int flow(const pocket_office::Office& office, Raster* r, int target) {
     return page + 1;
 }
 // Counting a long office walks all of its text, so remember the last answer.
-int pages_of(const pocket_office::Office& office, uint32_t key) {
+int pages_of(const pocket_office::Office& office, uint32_t key, int first_top = BODY_TOP, int rest_top = REST_TOP) {
     static uint32_t cached_key = 0;
     static int cached = 1;
-    if (key != cached_key) { cached = flow(office, nullptr, -1); cached_key = key; }
+    if (key != cached_key) { cached = flow(office, nullptr, -1, first_top, rest_top); cached_key = key; }
     return cached;
+}
+uint32_t prayer_key(const State& s) { return 0x80000000u | static_cast<uint32_t>(s.prayer * 4 + s.text_size); }
+// A ring of beads with a small cross hanging from it.
+void beads(Raster& r, int cx, int cy) {
+    for (int i = 0; i < 10; ++i) {
+        float angle = 6.2832f * i / 10 - 1.5708f;
+        r.rect(cx + static_cast<int>(std::lround(9 * std::cos(angle))) - 1, cy + static_cast<int>(std::lround(9 * std::sin(angle))) - 1, 3, 3);
+    }
+    r.rect(cx, cy + 11, 2, 12);
+    r.rect(cx - 3, cy + 14, 8, 2);
+}
+void footer(Raster& r, int page, int pages) {
+    r.dots(LEFT, 762, WIDE);
+    char b[32];
+    std::snprintf(b, sizeof(b), "%d / %d", page + 1, pages);
+    r.centred(b, FOOTER_Y, Face::Small);
+    if (page > 0) r.text("\xe2\x80\xb9 Previous", LEFT, FOOTER_Y, Face::Small);
+    if (page + 1 < pages) r.right("Next \xe2\x80\xba", RIGHT, FOOTER_Y, Face::Small);
+}
+// The day's hours as a strip, ending in the beads that open the prayers.
+void strip(Raster& r, const State& s, const Hours& h, bool prayers) {
+    r.text("\xe2\x86\x90", LEFT, 56);
+    r.right("\xe2\x86\x92", RIGHT, 56);
+    int position = 0;
+    for (int i = 0; i < h.count; ++i) if (h.visible[i] == h.active) position = i;
+    for (int i = 0; i < h.count; ++i) {
+        int a = STRIP_L + (STRIP_R - STRIP_L) * i / h.count, b = STRIP_L + (STRIP_R - STRIP_L) * (i + 1) / h.count;
+        segment(r, a + 3, 56, b - a - 6, i, position, h.valid);
+        std::string label(hour_name(h.visible[i], s.rite), 3);
+        r.text(label, a + (b - a - measure(label, Face::Small)) / 2, 68, Face::Small);
+        if (!prayers && h.visible[i] == h.reading) r.outline(a, 50, b - a, 44);
+    }
+    beads(r, (BEADS_L + BEADS_R) / 2, 63);
+    if (prayers) r.outline(BEADS_L, 50, BEADS_R - BEADS_L, 44);
 }
 uint32_t office_key(const State& s, const Hours& h) { return (h.date * 16 + h.reading * 2 + (s.rite ? 1 : 0)) * 4 + s.text_size; }
 void message(Raster& r, std::string_view text) {
@@ -257,32 +367,24 @@ void message(Raster& r, std::string_view text) {
 }
 void office(Raster& r, const State& s, const Hours& h) {
     header(r, s, "Hours", true);
-    r.text("\xe2\x86\x90", LEFT, 56);
-    r.right("\xe2\x86\x92", RIGHT, 56);
-    int position = 0;
-    for (int i = 0; i < h.count; ++i) if (h.visible[i] == h.active) position = i;
-    for (int i = 0; i < h.count; ++i) {
-        int a = STRIP_L + (STRIP_R - STRIP_L) * i / h.count, b = STRIP_L + (STRIP_R - STRIP_L) * (i + 1) / h.count;
-        segment(r, a + 4, 56, b - a - 8, i, position, h.valid);
-        std::string label(hour_name(h.visible[i], s.rite), 3);
-        r.text(label, a + (b - a - measure(label, Face::Small)) / 2, 68, Face::Small);
-        if (h.visible[i] == h.reading) r.outline(a, 50, b - a, 44);
-    }
-    r.text(hour_name(h.reading, s.rite), LEFT, 98, Face::Title);
-    r.right("Now", RIGHT, 114);
-    if (s.following) r.rect(RIGHT - measure("Now", Face::UI), 142, measure("Now", Face::UI), 2);
-    std::string status = s.following ? "Following the clock" : std::string("Reading held \xc2\xb7 ") + hour_name(h.active, s.rite) + " active now";
-    status += std::string(" \xc2\xb7 ") + s.zone + " time";
-    r.text(fit(status, Face::Small, WIDE), LEFT, 174, Face::Small);
+    strip(r, s, h, false);
+    // The strip above already shows which hour is active; the title block
+    // names the hour being read and appears on its first page only.
+    auto title = [&](std::string_view profile) {
+        r.text(hour_name(h.reading, s.rite), LEFT, 98, Face::Title);
+        r.right("Now", RIGHT, 114);
+        if (s.following) r.rect(RIGHT - measure("Now", Face::UI), 142, measure("Now", Face::UI), 2);
+        r.text(fit(profile, Face::Small, WIDE), LEFT, 152, Face::Small);
+    };
     const char* tradition = s.rite == 0 ? "Benedictine" : "Modern Liturgy of the Hours";
     pocket_office::Office found;
     if (!h.valid) {
-        r.text(tradition, LEFT, 152, Face::Small);
+        title(tradition);
         message(r, "The clock is not set yet. Hours follows the date, so it needs Wi-Fi once to fetch the time.");
         return;
     }
     if (!pack.find(h.date, s.rite, h.reading, found)) {
-        r.text(std::string(tradition) + " \xc2\xb7 Texts not loaded", LEFT, 152, Face::Small);
+        title(std::string(tradition) + " \xc2\xb7 Texts not loaded");
         char range[160];
         uint32_t a = pack.first_date(), b = pack.last_date();
         std::snprintf(range, sizeof(range), "This date/tradition is not in the offline prayer pack. The pack covers %04u-%02u-%02u to %04u-%02u-%02u.",
@@ -290,15 +392,35 @@ void office(Raster& r, const State& s, const Hours& h) {
         message(r, range);
         return;
     }
-    r.text(fit(found.title, Face::Small, WIDE), LEFT, 152, Face::Small);
     int pages = pages_of(found, office_key(s, h)), page = std::clamp(s.page, 0, pages - 1);
+    if (page == 0) title(found.title);
     flow(found, &r, page);
-    r.dots(LEFT, 762, WIDE);
-    char b[32];
-    std::snprintf(b, sizeof(b), "%d / %d", page + 1, pages);
-    r.centred(b, FOOTER_Y, Face::Small);
-    if (page > 0) r.text("\xe2\x80\xb9 Previous", LEFT, FOOTER_Y, Face::Small);
-    if (page + 1 < pages) r.right("Next \xe2\x80\xba", RIGHT, FOOTER_Y, Face::Small);
+    footer(r, page, pages);
+}
+// Common prayers: a list reached from the beads on the hour strip, then the
+// chosen prayer in the same reader as the hours.
+void prayers(Raster& r, const State& s, const Hours& h) {
+    header(r, s, "Prayers", true);
+    pocket_office::Office found;
+    if (s.prayer < 0) {
+        strip(r, s, h, true);
+        int count = prayer_count();
+        for (int i = 0; i < count; ++i) {
+            if (!pack.find(0, PRAYERS_RITE, i, found)) continue;
+            int y = LIST_TOP + i * LIST_PITCH;
+            if (i == s.prayer_selected) r.text("\xe2\x80\xba", LEFT, y + 6, Face::Latin);
+            r.text(fit(found.title, Face::Latin, WIDE - 26), LEFT + 26, y + 6, Face::Latin);
+            r.dots(LEFT, y + LIST_PITCH - 6, WIDE);
+        }
+        if (!count) r.text("No prayers are bundled in this build.", LEFT, LIST_TOP);
+        r.centred("RIGHT: next    POWER: open", FOOTER_Y, Face::Small);
+        return;
+    }
+    if (!pack.find(0, PRAYERS_RITE, s.prayer, found)) return;
+    int pages = pages_of(found, prayer_key(s), PRAYER_TOP, PRAYER_REST), page = std::clamp(s.page, 0, pages - 1);
+    if (page == 0) r.text(fit(found.title, Face::Title, WIDE), LEFT, 56, Face::Title);
+    flow(found, &r, page, PRAYER_TOP, PRAYER_REST);
+    footer(r, page, pages);
 }
 void settings(Raster& r, const State& s) {
     header(r, s, "Settings", false);
@@ -316,6 +438,12 @@ void settings(Raster& r, const State& s) {
 }  // namespace
 
 void set_pack(const uint8_t* data, size_t size) { pack.open(data, size); }
+int prayer_count() {
+    pocket_office::Office found;
+    int count = 0;
+    while (count < MAX_PRAYERS && pack.find(0, PRAYERS_RITE, count, found)) ++count;
+    return count;
+}
 const char* hour_name(int hour, int rite) {
     hour = std::clamp(hour, 0, 7);
     return hour == 0 && rite == 1 ? "Readings" : NAMES[hour];
@@ -349,8 +477,13 @@ int page_count(const State& s) {
         int n = s.cards ? s.cards->watch_count : 0;
         return std::max(1, (n + WATCHES_PER_PAGE - 1) / WATCHES_PER_PAGE);
     }
-    if (s.view != View::Hours) return 1;
     pocket_office::set_text_size(s.text_size);
+    if (s.view == View::Prayers) {
+        pocket_office::Office prayer;
+        if (s.prayer < 0 || !pack.find(0, PRAYERS_RITE, s.prayer, prayer)) return 1;
+        return pages_of(prayer, prayer_key(s), PRAYER_TOP, PRAYER_REST);
+    }
+    if (s.view != View::Hours) return 1;
     Hours h = hours(s);
     pocket_office::Office found;
     if (!h.valid || !pack.find(h.date, s.rite, h.reading, found)) return 1;
@@ -366,13 +499,9 @@ void render(uint8_t* canvas, const State& s) {
     case View::Watches: watches(r, s, h); break;
     case View::NextUp: next_up(r, s, h); break;
     case View::Hours: office(r, s, h); break;
+    case View::Prayers: prayers(r, s, h); break;
     case View::Settings: settings(r, s); break;
-    case View::Sleeping:
-        header(r, s, "Muse", false);
-        if (s.avatar) std::memcpy(canvas + AVATAR_Y * W, s.avatar, static_cast<size_t>(AVATAR) * W);
-        r.centred("Sleeping", 580, Face::Title);
-        r.centred("Press POWER to wake", 650);
-        break;
+    case View::Sleeping: muse(r, canvas, s, h); break;
     }
 }
 Hit hit(const State& s, int x, int y) {
@@ -386,25 +515,41 @@ Hit hit(const State& s, int x, int y) {
     }
     if (y < RULE_Y + 4) {
         if (x >= GEAR_X - 10) return {Action::Settings, 0};
-        if (s.view != View::Muse && x >= CLOSE_X - 12) return {s.view == View::Hours ? Action::CloseHours : Action::Muse, 0};
-        if (x < 160 && s.view != View::Muse) return {s.view == View::Hours ? Action::CloseHours : Action::Muse, 0};
+        // The cross steps back one level: a prayer to the list, the list to Hours.
+        Action back = s.view == View::Hours ? Action::CloseHours
+            : s.view == View::Prayers ? (s.prayer < 0 ? Action::OpenHours : Action::Prayers) : Action::Muse;
+        if (s.view != View::Muse && (x >= CLOSE_X - 12 || x < 160)) return {back, 0};
+        return {};
+    }
+    if (s.view == View::Prayers) {
+        if (s.prayer >= 0) return {x < W / 3 ? Action::PrevPage : Action::NextPage, 0};
+        if (y < 96) {
+            if (x >= BEADS_L && x < BEADS_R) return {};
+            if (x < STRIP_L || x >= BEADS_R) return {Action::OpenHours, 0};
+            Hours h = hours(s);
+            return {Action::SelectHour, h.visible[std::clamp((x - STRIP_L) * h.count / (STRIP_R - STRIP_L), 0, h.count - 1)]};
+        }
+        int row = (y - (LIST_TOP - 6)) / LIST_PITCH;
+        if (y >= LIST_TOP - 6 && row < prayer_count()) return {Action::OpenPrayer, row};
         return {};
     }
     if (s.view == View::Hours) {
         Hours h = hours(s);
         if (y < 96) {
             if (x < STRIP_L) return {Action::PrevHour, 0};
-            if (x >= STRIP_R) return {Action::NextHour, 0};
+            if (x >= BEADS_R) return {Action::NextHour, 0};
+            if (x >= STRIP_R) return {Action::Prayers, 0};
             return {Action::SelectHour, h.visible[std::clamp((x - STRIP_L) * h.count / (STRIP_R - STRIP_L), 0, h.count - 1)]};
         }
-        if (y < 150) return x >= 360 ? Hit{Action::Now, 0} : Hit{};
-        if (y < BODY_TOP) return {};
+        // The title block, with Now, is on the first page only.
+        if (s.page == 0 && y < 150) return x >= 360 ? Hit{Action::Now, 0} : Hit{};
+        if (s.page == 0 && y < BODY_TOP) return {};
         return {x < W / 3 ? Action::PrevPage : Action::NextPage, 0};
     }
     if (y < HUD_Y + 34) return {Action::OpenHours, 0};
     int tab_y = s.view == View::Muse ? TABS_Y : CARD_TABS_Y;
-    if (y >= tab_y - 10 && y < tab_y + 40) return {x < tab_split() + 7 ? Action::Watches : Action::NextUp, 0};
-    if (s.view == View::Muse) return y >= tab_y ? Hit{Action::Watches, 0} : Hit{};
+    if (y >= tab_y - 10 && y < tab_y + 40) return {x < W / 2 ? Action::Watches : Action::NextUp, 0};
+    if (s.view == View::Muse) return y >= tab_y ? Hit{x < W / 2 ? Action::Watches : Action::NextUp, 0} : Hit{};
     if (s.view == View::Watches && y >= 180) return {x < W / 3 ? Action::PrevPage : Action::NextPage, 0};
     return {};
 }

@@ -5,6 +5,18 @@ Perl engine locally. It resolves variable prayers ahead of time; the Mac preview
 reads the generated pack offline. The firmware build packs the same JSON with
 `build_firmware_pack.py`; `build_fonts.py` regenerates its glyph subsets.
 
+`prayers.json` holds the common prayers shown under Hours. Each entry has a
+title and blocks; put matching Latin and English on matching lines, or leave the
+Latin out for an English-only prayer. The texts were entered by hand and should
+be proofread against a trusted source before being relied on. If an entry uses a
+character the fonts do not have yet, run `build_fonts.py` again.
+
+The packer cuts each prayer into short pieces so a Latin line sits above its own
+translation. Lines and psalm pause marks divide a prayer where both languages
+have the same number; within those, clauses are matched in order by length.
+Where the English orders its clauses differently, a piece can sit beside its
+neighbour's translation.
+
 The source revision is `b6e94c5825ba656b223e78bd2c49cf973f2eea1a`, using
 **Monastic – 1963**, Latin and traditional English. This is the general monastic
 calendar. Clear Creek local propers and its precise observance are not verified.

@@ -38,6 +38,12 @@ def charset(pack):
     for block in data["texts"].values():
         for key in ("latin", "english"):
             chars |= set(unicodedata.normalize("NFC", block[key]))
+    prayers = Path(pack).with_name("prayers.json")
+    if prayers.exists():
+        for prayer in json.loads(prayers.read_text())["prayers"]:
+            chars |= set(unicodedata.normalize("NFC", prayer["title"]))
+            for block in prayer["blocks"]:
+                chars |= set(unicodedata.normalize("NFC", block.get("latin", "") + block.get("english", "")))
     for rites in data["days"].values():
         for offices in rites.values():
             for office in offices.values():

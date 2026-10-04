@@ -15,8 +15,10 @@ bool Pack::open(const uint8_t* data, size_t size) {
     if (texts_at > size || texts > (size - texts_at) / 4) return false;
     if (offices_at > size || offices > (size - offices_at) / record) return false;
     data_ = data; size_ = size; texts_ = texts; offices_ = offices; texts_at_ = texts_at; offices_at_ = offices_at;
-    first_ = offices ? u32(data + offices_at) : 0;
-    last_ = offices ? u32(data + offices_at + record * (offices - 1)) : 0;
+    // Records are sorted by date; common prayers sit first, under date 0.
+    first_ = last_ = 0;
+    for (uint32_t i = 0; i < offices && !first_; ++i) first_ = u32(data + offices_at + record * i);
+    if (first_) last_ = u32(data + offices_at + record * (offices - 1));
     return true;
 }
 bool Pack::find(uint32_t day, int rite, int hour, Office& out) const {

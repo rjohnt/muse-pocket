@@ -8,7 +8,7 @@
 namespace pocket_ui {
 constexpr int W = 480, H = 800, AVATAR = 480, AVATAR_Y = 88;
 constexpr int MAX_WATCHES = 10, MAX_ROWS = 12, WATCHES_PER_PAGE = 5;
-enum class View { Muse, Watches, NextUp, Hours, Settings, Sleeping };
+enum class View { Muse, Watches, NextUp, Hours, Prayers, Settings, Sleeping };
 struct Watch { char label[81]; char state[33]; char note[201]; int64_t checked; };
 struct Cards {
     bool has_watches = false; int64_t watches_updated = 0; int watch_count = 0; Watch watches[MAX_WATCHES] = {};
@@ -29,6 +29,7 @@ struct State {
     const char* zone = "Central";
     bool following = true;
     int reading_hour = 0, page = 0;
+    int prayer = -1, prayer_selected = 0;  // Prayers: -1 shows the list
     const char* rows[MAX_ROWS] = {};
     int row_count = 0, selected = 0;
     const Cards* cards = nullptr;
@@ -38,12 +39,14 @@ struct Hours {
     int count; int visible[8];
 };
 enum class Action { None, Settings, Muse, Watches, NextUp, OpenHours, CloseHours,
-                    PrevHour, NextHour, SelectHour, Now, PrevPage, NextPage, Row };
+                    PrevHour, NextHour, SelectHour, Now, PrevPage, NextPage, Row,
+                    Prayers, OpenPrayer };
 struct Hit { Action action = Action::None; int value = 0; };
 
 void set_pack(const uint8_t* data, size_t size);
 const char* hour_name(int hour, int rite);
 Hours hours(const State& state);
+int prayer_count();
 bool next_up_visible(const State& state);
 int page_count(const State& state);
 void render(uint8_t* canvas, const State& state);

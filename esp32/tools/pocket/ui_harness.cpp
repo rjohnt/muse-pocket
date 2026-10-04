@@ -12,6 +12,7 @@
 
 using namespace pocket_ui;
 static int failures = 0;
+constexpr int HUD_TOP = 48;
 #define CHECK(condition) do { if (!(condition)) { std::printf("FAIL %s:%d %s\n", __FILE__, __LINE__, #condition); ++failures; } } while (0)
 
 static std::vector<uint8_t> canvas(W * H);
@@ -50,6 +51,11 @@ int main(int argc, char** argv) {
         int dx = x - 240, dy = y - 240;
         avatar[y * W + x] = dx * dx + dy * dy < 180 * 180 ? 96 + (x + y) % 96 : 255;
     }
+    // POCKET_AVATAR may name a raw 480x480 grey image for visual review.
+    if (const char* path = getenv("POCKET_AVATAR")) {
+        std::ifstream raw(path, std::ios::binary);
+        raw.read(reinterpret_cast<char*>(avatar.data()), avatar.size());
+    }
     Cards cards;
     State s;
     s.cards = &cards;
@@ -66,11 +72,42 @@ int main(int argc, char** argv) {
     CHECK(h.valid && h.minute == 14 * 60 + 14 && h.active == 4 && h.reading == 4 && h.date == 20261003 && h.count == 8);
     scene("muse", s);
     CHECK(ink_between(AVATAR_Y, AVATAR_Y + AVATAR) > 20000);
+    // The character is enlarged into the free space, and the name and caption
+    // sit just above the tabs rather than under a fixed square.
+    int widest = 0;
+    for (int y = AVATAR_Y; y < 600; ++y) {
+        int first = W, last = -1;
+        for (int x = 0; x < W; ++x) if (canvas[y * W + x] != 255) { first = x < first ? x : first; last = x; }
+        widest = last - first > widest ? last - first : widest;
+    }
+    if (!getenv("POCKET_AVATAR")) CHECK(widest > 420);
+    CHECK(ink_between(622, 726) > 1500);
+    CHECK(ink_between(726, 736) == 0);
     CHECK(hit(s, 440, 20).action == Action::Settings);
     CHECK(hit(s, 200, 66).action == Action::OpenHours);
     CHECK(hit(s, 40, 750).action == Action::Watches);
-    CHECK(hit(s, 150, 750).action == Action::NextUp);
+    CHECK(hit(s, 230, 750).action == Action::Watches);
+    CHECK(hit(s, 250, 750).action == Action::NextUp);
+    CHECK(hit(s, 450, 750).action == Action::NextUp);
     CHECK(hit(s, 240, 300).action == Action::None);
+
+    // A faint shadow trailing to one side must not pull the body off centre.
+    if (!getenv("POCKET_AVATAR")) {
+        std::vector<uint8_t> lopsided(W * AVATAR, 255);
+        for (int y = 0; y < AVATAR; ++y) for (int x = 0; x < W; ++x) {
+            int dx = x - 300, dy = y - 220;
+            if (dx * dx + dy * dy < 120 * 120) lopsided[y * W + x] = 40;
+            else if (y > 350 && y < 362 && x > 20 && x < 300) lopsided[y * W + x] = 236;
+        }
+        State offset = s;
+        offset.avatar = lopsided.data();
+        scene("muse-shadow", offset);
+        int64_t mass = 0, sum = 0;
+        for (int y = AVATAR_Y; y < 600; ++y) for (int x = 0; x < W; ++x) if (canvas[y * W + x] < 128) { ++mass; sum += x; }
+        CHECK(mass > 20000);
+        int middle = static_cast<int>(sum / (mass ? mass : 1));
+        CHECK(middle > W / 2 - 6 && middle < W / 2 + 6);
+    }
 
     // Before Matins, yesterday's Compline is still being followed.
     State early = s;
@@ -128,14 +165,14 @@ int main(int argc, char** argv) {
     int pages = page_count(s);
     CHECK(pages > 3);
     scene("hours", s);
-    int first = ink_between(204, 756);
+    int first = ink_between(110, 756);
     CHECK(first > 5000);
     s.page = pages - 1;
     scene("hours-last", s);
-    CHECK(ink_between(204, 756) > 100);
+    CHECK(ink_between(110, 756) > 100);
     s.page = pages + 50;  // out-of-range pages clamp instead of drawing nothing
     render(canvas.data(), s);
-    CHECK(ink_between(204, 756) > 100);
+    CHECK(ink_between(110, 756) > 100);
     s.page = 1;
     scene("hours-2", s);
     s.page = 0;
@@ -145,9 +182,14 @@ int main(int argc, char** argv) {
     CHECK(hit(s, 450, 70).action == Action::NextHour);
     Hit pick = hit(s, 80, 70);
     CHECK(pick.action == Action::SelectHour && pick.value == 0);
-    pick = hit(s, 410, 70);
+    pick = hit(s, 375, 70);
     CHECK(pick.action == Action::SelectHour && pick.value == 7);
     CHECK(hit(s, 430, 120).action == Action::Now);
+    // Later pages drop the title block, so the same spot turns the page.
+    State onward = s;
+    onward.page = 1;
+    CHECK(hit(onward, 430, 120).action == Action::NextPage);
+    CHECK(hit(onward, 80, 70).action == Action::SelectHour);
     CHECK(hit(s, 60, 500).action == Action::PrevPage);
     CHECK(hit(s, 400, 500).action == Action::NextPage);
 
@@ -164,11 +206,44 @@ int main(int argc, char** argv) {
             most = count > most ? count : most;
             sweep.page = count - 1;
             render(canvas.data(), sweep);
-            CHECK(ink_between(204, 756) > 100);
+            CHECK(ink_between(110, 756) > 100);
             ++offices;
         }
     }
     std::printf("offices %d, longest %d pages\n", offices, most);
+
+    // The beads at the end of the hour strip lead to the common prayers.
+    CHECK(hit(s, 400, 70).action == Action::Prayers);
+    CHECK(hit(s, 370, 70).action == Action::SelectHour);
+    State praying = s;
+    praying.view = View::Prayers;
+    int listed = prayer_count();
+    CHECK(listed == 4);
+    scene("prayers", praying);
+    CHECK(page_count(praying) == 1);
+    for (int i = 0; i < listed; ++i) {
+        Hit row = hit(praying, 200, 112 + i * 56 + 20);
+        CHECK(row.action == Action::OpenPrayer && row.value == i);
+    }
+    CHECK(hit(praying, 400, 20).action == Action::OpenHours);
+    CHECK(hit(praying, 100, 70).action == Action::SelectHour);
+    for (int i = 0; i < listed; ++i) {
+        praying.prayer = i;
+        praying.page = 0;
+        int count = page_count(praying);
+        CHECK(count >= 1);
+        std::string name = "prayer-" + std::to_string(i);
+        scene(name.c_str(), praying);
+        CHECK(ink_between(56, 756) > 3000);
+        praying.page = count - 1;
+        render(canvas.data(), praying);
+        CHECK(ink_between(56, 756) > 300);
+    }
+    praying.prayer = 1;
+    praying.page = 1;
+    scene("prayer-1-page-2", praying);
+    CHECK(hit(praying, 400, 20).action == Action::Prayers);
+    CHECK(hit(praying, 400, 400).action == Action::NextPage);
 
     // Larger reading text means more pages; smaller means fewer.
     State sized = s;
@@ -179,7 +254,7 @@ int main(int argc, char** argv) {
     int large_pages = page_count(sized);
     scene("hours-large", sized);
     CHECK(small_pages < pages && pages < large_pages);
-    CHECK(ink_between(204, 756) > 5000);
+    CHECK(ink_between(110, 756) > 5000);
 
     State held = s;
     held.following = false;
@@ -215,6 +290,9 @@ int main(int argc, char** argv) {
     State asleep = s;
     asleep.view = View::Sleeping;
     scene("sleeping", asleep);
+    // Asleep keeps the name and last caption, without the hour line or tabs.
+    CHECK(ink_between(622, 726) > 1500);
+    CHECK(ink_between(HUD_TOP, HUD_TOP + 30) == 0 || getenv("POCKET_AVATAR"));
     CHECK(hit(asleep, 440, 20).action == Action::None);
     CHECK(ink() > 0);
     std::printf(failures ? "%d checks failed\n" : "all checks passed\n", failures);

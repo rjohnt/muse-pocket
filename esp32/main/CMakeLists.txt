@@ -113,11 +113,12 @@ if(CONFIG_HOMEHUB_LED_BACKEND_XTEINK_X4_PRO)
     # Dated prayer pack, packed from the tracked JSON so the two cannot drift.
     idf_build_get_property(python PYTHON)
     set(office_json "${CMAKE_CURRENT_LIST_DIR}/../../tools/office/office-pack.json")
+    set(office_prayers "${CMAKE_CURRENT_LIST_DIR}/../../tools/office/prayers.json")
     set(office_tool "${CMAKE_CURRENT_LIST_DIR}/../../tools/office/build_firmware_pack.py")
     set(office_bin "${CMAKE_BINARY_DIR}/office.bin")
     add_custom_command(OUTPUT "${office_bin}"
-        COMMAND "${python}" "${office_tool}" "${office_json}" "${office_bin}"
-        DEPENDS "${office_json}" "${office_tool}" VERBATIM)
+        COMMAND "${python}" "${office_tool}" "${office_json}" "${office_bin}" --prayers "${office_prayers}"
+        DEPENDS "${office_json}" "${office_prayers}" "${office_tool}" VERBATIM)
     add_custom_target(office_pack DEPENDS "${office_bin}")
     target_add_binary_data(${COMPONENT_LIB} "${office_bin}" BINARY DEPENDS office_pack)
 endif()
