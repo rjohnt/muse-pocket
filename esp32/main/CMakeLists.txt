@@ -49,6 +49,7 @@ set(GADGET_REQUIRES
     esp_http_client
     esp_https_ota
     app_update
+    esp_partition
     esp_app_format
     esp-tls
     noise_core

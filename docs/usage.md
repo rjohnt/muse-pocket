@@ -78,7 +78,12 @@ The watch payload has `updated` and up to ten `items`, each with `label`,
 `state`, `note` and `checked`. The event payload has `updated`, `title`, `when`,
 `ends` and optional `detail`; an empty title clears it. Times are ISO 8601 with
 an offset. A payload that does not match is refused and the previous card stays.
-The cards are held in memory and are empty after a restart.
+The reader keeps the last character, caption and cards in flash and shows them
+straight after a restart or a wake, before Muse has reconnected; the cards keep
+their own timestamps, so old ones are still marked stale. It borrows the
+reader's spare data partition if that is blank, and otherwise the crash-dump
+partition. The last row of Settings, **Screen kept**, says what is being kept
+and where.
 
 Use a **baseline JPEG** prepared for the **480×480 character canvas**, or
 big-endian RGB565 data. Gray is converted to black and white with dithering.

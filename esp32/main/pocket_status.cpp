@@ -12,6 +12,8 @@
 #include "esp_log.h"
 #include "esp_sleep.h"
 #include "esp_netif_sntp.h"
+#include "esp_partition.h"
+#include "esp_rom_crc.h"
 #include "cJSON.h"
 #include "nvs.h"
 #include "office/ui.h"
@@ -35,7 +37,7 @@ using pocket_ui::Action;
 using pocket_ui::View;
 constexpr int W=pocket_ui::W, H=pocket_ui::H, AVATAR=pocket_ui::AVATAR, AVATAR_Y=pocket_ui::AVATAR_Y;
 // Settings rows. Recovery needs a deliberate hold and is never activated by a tap.
-enum { ROW_LIGHT, ROW_WARMTH, ROW_CADENCE, ROW_FLIP, ROW_TEXT, ROW_RITE, ROW_CLOCK, ROW_ZONE, ROW_SLEEP, ROW_RECOVERY, ROW_BACK, ROWS };
+enum { ROW_LIGHT, ROW_WARMTH, ROW_CADENCE, ROW_FLIP, ROW_TEXT, ROW_RITE, ROW_CLOCK, ROW_ZONE, ROW_SLEEP, ROW_RECOVERY, ROW_BACK, ROW_KEPT, ROWS };
 const char* const text_sizes[]={"small","medium","large"};
 constexpr int64_t CLOCK_VALID_AFTER=1700000000;
 const char* const zone_names[]={"Central","UTC","Eastern","Mountain","Pacific","Rome","London"};
@@ -180,6 +182,141 @@ void default_character() {
         rect(x0+x*scale,y0+y*scale,scale,scale,c?luma((be>>8)|(be<<8)):255);
     }
 }
+// ---- Last-known content -----------------------------------------------------
+// The character, caption and cards are kept in flash so the screen shows them
+// straight after a restart or a wake, before Muse has reconnected.
+//
+// The reader has no partition set aside for this, so one is borrowed:
+//   1. the spare data partition, but only if it is completely blank or already
+//      holds this cache, so nothing another firmware stored there is lost;
+//   2. otherwise the crash-dump partition. This firmware writes no crash
+//      dumps, and whatever another firmware left there is only a dump.
+// The character is stored at 2 bits a pixel where there is room, 1 bit where
+// there is less, and not at all in a very small partition.
+constexpr uint32_t CACHE_MAGIC=0x4b43504d, CACHE_VERSION=1;  // "MPCK"
+constexpr size_t TEXT_AT=0, TEXT_SPAN=0x2000, IMAGE_AT=0x2000, PIXELS=static_cast<size_t>(W)*AVATAR;
+struct CacheHeader { uint32_t magic, version, crc, length; };
+struct CacheText { bool has_status; char status[241]; pocket_ui::Cards cards; };
+static_assert(sizeof(CacheHeader)+sizeof(CacheText)<=TEXT_SPAN,"cached text must fit its sectors");
+const esp_partition_t* cache_part=nullptr;
+size_t image_span=0;      // sectors given to the character, 0 when it is not kept
+int image_bits=0;         // 2, 1 or 0
+bool text_dirty=false, image_dirty=false;
+int64_t text_dirty_us=0;
+char cache_note[64]="Screen kept: no storage";
+
+size_t round_up(size_t n) { return (n+0xfff)&~static_cast<size_t>(0xfff); }
+bool cache_header(size_t at,CacheHeader* h) {
+    return esp_partition_read(cache_part,at,h,sizeof(*h))==ESP_OK&&h->magic==CACHE_MAGIC&&h->version==CACHE_VERSION;
+}
+bool cache_read(size_t at,size_t span,void* out,size_t length) {
+    CacheHeader h;
+    if(!cache_header(at,&h)||h.length!=length||sizeof(h)+length>span) return false;
+    if(esp_partition_read(cache_part,at+sizeof(h),out,length)!=ESP_OK) return false;
+    return esp_rom_crc32_le(0,static_cast<const uint8_t*>(out),length)==h.crc;
+}
+bool cache_write(size_t at,size_t span,const void* data,size_t length) {
+    if(!cache_part) return false;
+    CacheHeader h={CACHE_MAGIC,CACHE_VERSION,esp_rom_crc32_le(0,static_cast<const uint8_t*>(data),length),static_cast<uint32_t>(length)};
+    return esp_partition_erase_range(cache_part,at,span)==ESP_OK
+        &&esp_partition_write(cache_part,at+sizeof(h),data,length)==ESP_OK
+        // The header goes last, so an interrupted write is simply not valid.
+        &&esp_partition_write(cache_part,at,&h,sizeof(h))==ESP_OK;
+}
+bool cache_ours(const esp_partition_t* part) {
+    CacheHeader h;
+    return esp_partition_read(part,TEXT_AT,&h,sizeof(h))==ESP_OK&&h.magic==CACHE_MAGIC;
+}
+bool cache_blank(const esp_partition_t* part) {
+    uint8_t chunk[256];
+    for(size_t at=0;at<part->size;at+=sizeof(chunk)) {
+        size_t n=std::min(sizeof(chunk),static_cast<size_t>(part->size-at));
+        if(esp_partition_read(part,at,chunk,n)!=ESP_OK) return false;
+        for(size_t i=0;i<n;++i) if(chunk[i]!=0xff) return false;
+    }
+    return true;
+}
+void cache_choose() {
+    const esp_partition_t* spare=esp_partition_find_first(ESP_PARTITION_TYPE_DATA,ESP_PARTITION_SUBTYPE_DATA_SPIFFS,nullptr);
+    const esp_partition_t* dump=esp_partition_find_first(ESP_PARTITION_TYPE_DATA,ESP_PARTITION_SUBTYPE_DATA_COREDUMP,nullptr);
+    if(spare&&spare->size>=TEXT_SPAN&&(cache_ours(spare)||cache_blank(spare))) cache_part=spare;
+    else if(dump&&dump->size>=TEXT_SPAN) cache_part=dump;
+    ESP_LOGI(TAG,"spare data partition %s, crash-dump partition %s",spare?"present":"absent",dump?"present":"absent");
+    if(!cache_part) return;
+    size_t room=cache_part->size-IMAGE_AT;
+    for(int bits:{2,1}) {
+        size_t span=round_up(sizeof(CacheHeader)+PIXELS*bits/8);
+        if(span<=room) {image_bits=bits;image_span=span;break;}
+    }
+    snprintf(cache_note,sizeof(cache_note),"Screen kept: %s (%.10s %uK)",
+             image_bits==2?"yes":image_bits==1?"yes, coarse":"status only",cache_part->label,static_cast<unsigned>(cache_part->size/1024));
+    ESP_LOGI(TAG,"%s",cache_note);
+}
+// Call once the display buffers exist and before the first frame.
+void cache_load() {
+    cache_choose();
+    if(!cache_part) return;
+    std::unique_ptr<CacheText> text(new CacheText());
+    if(cache_read(TEXT_AT,TEXT_SPAN,text.get(),sizeof(CacheText))) {
+        text->status[sizeof(text->status)-1]=0;
+        if(text->has_status) {custom_status=true;snprintf(status,sizeof(status),"%s",text->status);}
+        cards=text->cards;
+        cards.watch_count=std::clamp(cards.watch_count,0,pocket_ui::MAX_WATCHES);
+        for(auto& w:cards.watches) {w.label[sizeof(w.label)-1]=0;w.state[sizeof(w.state)-1]=0;w.note[sizeof(w.note)-1]=0;}
+        cards.title[sizeof(cards.title)-1]=0;cards.detail[sizeof(cards.detail)-1]=0;
+    }
+    CacheHeader h;
+    if(!image_bits||!cache_header(IMAGE_AT,&h)) return;
+    int bits=h.length==PIXELS/4?2:h.length==PIXELS/8?1:0;
+    uint8_t* packed=bits?static_cast<uint8_t*>(heap_caps_malloc(h.length,MALLOC_CAP_SPIRAM)):nullptr;
+    if(packed&&cache_read(IMAGE_AT,cache_part->size-IMAGE_AT,packed,h.length)) {
+        if(bits==2) for(size_t i=0;i<PIXELS;++i) avatar[i]=((packed[i/4]>>((i%4)*2))&3)*85;
+        else for(size_t i=0;i<PIXELS;++i) avatar[i]=(packed[i/8]>>(i%8))&1?255:0;
+        custom_avatar=true;
+    }
+    free(packed);
+}
+// Flash writes are slow, so they happen here, off the display and command paths.
+void cache_save(bool now) {
+    if(!cache_part) return;
+    xSemaphoreTake(lock_,portMAX_DELAY);
+    bool text=text_dirty&&(now||esp_timer_get_time()-text_dirty_us>=20000000), image=image_dirty&&image_bits;
+    std::unique_ptr<CacheText> record;
+    uint8_t* packed=nullptr;
+    bool keep_image=custom_avatar;
+    size_t bytes=PIXELS*image_bits/8;
+    if(text) {
+        record.reset(new CacheText());
+        record->has_status=custom_status;snprintf(record->status,sizeof(record->status),"%s",status);
+        record->cards=cards;text_dirty=false;
+    }
+    if(image) {
+        image_dirty=false;
+        if(keep_image&&(packed=static_cast<uint8_t*>(heap_caps_calloc(1,bytes,MALLOC_CAP_SPIRAM)))) {
+            // Dithered as it is reduced, so the tones survive the few bits kept.
+            for(int y=0;y<AVATAR;++y) for(int x=0;x<W;++x) {
+                size_t i=static_cast<size_t>(y)*W+x;
+                int threshold=bayer[y%4][x%4]*16+8;
+                // Near-white stays white. Dithering it would scatter grey specks over
+                // the background, and the character is sized and centred by its ink.
+                int grey=avatar[i]>=244?255:avatar[i];
+                if(image_bits==2) packed[i/4]|=std::min((grey*3+threshold)/255,3)<<((i%4)*2);
+                else if(grey>=threshold) packed[i/8]|=1<<(i%8);
+            }
+        }
+    }
+    xSemaphoreGive(lock_);
+    if(text&&!cache_write(TEXT_AT,TEXT_SPAN,record.get(),sizeof(CacheText))) ESP_LOGW(TAG,"could not keep the caption and cards");
+    if(image) {
+        if(packed) {if(!cache_write(IMAGE_AT,image_span,packed,bytes)) ESP_LOGW(TAG,"could not keep the character");}
+        // With no character to keep, forget the old one.
+        else if(!keep_image) esp_partition_erase_range(cache_part,IMAGE_AT,image_span);
+    }
+    free(packed);
+}
+// Call with lock_ held.
+void touch_text() {text_dirty=true;text_dirty_us=esp_timer_get_time();}
+
 void apply_zone() { setenv("TZ",zone_rules[zone],1); tzset(); }
 bool clock_valid(int64_t now) { return now>CLOCK_VALID_AFTER; }
 // Call with lock_ held. Row text lives in setting_rows until the next call.
@@ -204,6 +341,7 @@ pocket_ui::State snapshot() {
     snprintf(setting_rows[ROW_SLEEP],48,"Sleep");
     snprintf(setting_rows[ROW_RECOVERY],48,"%s",recovery?"Return to CrossPoint":"CrossPoint not verified");
     snprintf(setting_rows[ROW_BACK],48,"Back to Muse");
+    snprintf(setting_rows[ROW_KEPT],48,"%.47s",cache_note);
     for(int i=0;i<ROWS;++i) s.rows[i]=setting_rows[i];
     s.row_count=ROWS; s.selected=selected;
     // A new hour or day starts from its first page.
@@ -271,6 +409,7 @@ void render_task(void*) {
     }
 }
 void sleep_now() {
+    cache_save(true);
     xSemaphoreTake(lock_,portMAX_DELAY); sleeping=true;force_full=true;xSemaphoreGive(lock_);
     if(!await_frame(request_frame())) {
         ESP_LOGE(TAG,"sleep screen or panel power-down failed; leaving recovery buttons active");
@@ -311,6 +450,7 @@ void activate() {
     case ROW_SLEEP: xSemaphoreGive(lock_);sleep_now();return;
     case ROW_RECOVERY: break; // Recovery requires a deliberate hold, never a tap.
     case ROW_BACK: menu=false;force_full=true;break;
+    case ROW_KEPT: break; // Information only.
     }
     xSemaphoreGive(lock_);notify();
 }
@@ -478,6 +618,7 @@ void input_task(void*) {
             last_battery=now;
         }
         keep_time();
+        cache_save(false);
         was_right=right;was_power=power;delay(30);
     }
 }
@@ -508,6 +649,7 @@ extern "C" bool led_status_init(void) {
     bus.begin({12,11,13,18,14,6},panel->spiHz(),panel->busyPolarity());panel->begin(bus);
     if(!bus.healthy()) return false;
     light_init();peripherals_init();recovery=pocket_recovery_available();
+    cache_load();
     apply_zone();
     pocket_ui::set_pack(office_pack_start,office_pack_end-office_pack_start);
     pinMode(7,INPUT_PULLUP);pinMode(3,INPUT_PULLUP);
@@ -535,7 +677,11 @@ extern "C" void led_status_set_title(const char* value) {
 }
 extern "C" void pocket_set_status(const char* value) {
     if(!renderer)return;
-    xSemaphoreTake(lock_,portMAX_DELAY);custom_status=true;snprintf(status,sizeof(status),"%s",value?value:"");last_status_us=esp_timer_get_time();xSemaphoreGive(lock_);notify();
+    xSemaphoreTake(lock_,portMAX_DELAY);
+    bool changed=!custom_status||strcmp(status,value?value:"")!=0;
+    custom_status=true;snprintf(status,sizeof(status),"%s",value?value:"");last_status_us=esp_timer_get_time();
+    if(changed) touch_text();
+    xSemaphoreGive(lock_);notify();
 }
 extern "C" bool pocket_set_name(const char* value) {
     if(!renderer||!value||strlen(value)>=sizeof(custom_name))return false;
@@ -572,12 +718,12 @@ extern "C" bool led_status_draw_rect(int x,int y,int w,int h,const uint16_t* pix
 }
 extern "C" void led_status_draw_done(void) {
     if(!renderer)return;
-    xSemaphoreTake(lock_,portMAX_DELAY);std::swap(avatar,staging);custom_avatar=true;loading=false;force_full=true;xSemaphoreGive(lock_);
+    xSemaphoreTake(lock_,portMAX_DELAY);std::swap(avatar,staging);custom_avatar=true;loading=false;force_full=true;image_dirty=true;xSemaphoreGive(lock_);
     await_frame(request_frame());
 }
 extern "C" void led_status_show_animation(void) {
     if(!renderer)return;
-    xSemaphoreTake(lock_,portMAX_DELAY);custom_avatar=false;loading=false;force_full=true;xSemaphoreGive(lock_);notify();
+    xSemaphoreTake(lock_,portMAX_DELAY);custom_avatar=false;loading=false;force_full=true;image_dirty=true;xSemaphoreGive(lock_);notify();
 }
 extern "C" void led_status_set_voice(led_voice_t) {}
 extern "C" void led_status_set_level(float) {}
@@ -593,7 +739,7 @@ extern "C" void pocket_image_abort(void) {
 }
 extern "C" bool pocket_image_complete(void) {
     if(!renderer)return false;
-    xSemaphoreTake(lock_,portMAX_DELAY);std::swap(avatar,staging);custom_avatar=true;loading=false;force_full=true;xSemaphoreGive(lock_);
+    xSemaphoreTake(lock_,portMAX_DELAY);std::swap(avatar,staging);custom_avatar=true;loading=false;force_full=true;image_dirty=true;xSemaphoreGive(lock_);
     return await_frame(request_frame());
 }
 
@@ -638,7 +784,7 @@ extern "C" bool pocket_set_watch_digest(const char* payload) {
     xSemaphoreTake(lock_,portMAX_DELAY);
     cards.has_watches=true;cards.watches_updated=next->watches_updated;cards.watch_count=next->watch_count;
     memcpy(cards.watches,next->watches,sizeof(cards.watches));
-    accepted("pocket.set_watch_digest");
+    accepted("pocket.set_watch_digest");touch_text();
     xSemaphoreGive(lock_);notify();return true;
 }
 extern "C" bool pocket_set_next_up(const char* payload) {
@@ -655,7 +801,7 @@ extern "C" bool pocket_set_next_up(const char* payload) {
     xSemaphoreTake(lock_,portMAX_DELAY);
     cards.has_next=next->title[0]!=0;cards.next_updated=next->next_updated;cards.when=next->when;cards.ends=next->ends;
     memcpy(cards.title,next->title,sizeof(cards.title));memcpy(cards.detail,next->detail,sizeof(cards.detail));
-    accepted("pocket.set_next_up");
+    accepted("pocket.set_next_up");touch_text();
     xSemaphoreGive(lock_);notify();return true;
 }
 extern "C" void pocket_previous(void) {
