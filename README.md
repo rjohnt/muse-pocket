@@ -54,11 +54,35 @@ See [prayer-pack provenance and regeneration](tools/office/README.md). This is a
 development snapshot, not a complete perpetual liturgical calendar or a ready-to-flash
 Hours release.
 
-## Existing X4 Pro firmware
+## X4 Pro firmware
 
-The inherited firmware displays a Muse character and caption, with brightness,
-warmth, orientation, refresh and sleep settings. Its upstream hardware validation
-does not validate this fork’s new preview features.
+The firmware carries the same screens as the preview, drawn for the reader’s
+480×800 e-paper panel and its buttons:
+
+- **Muse:** the active prayer hour and clock, the character enlarged to fill the
+  space, its name and caption, and the Watchlist and Next up tabs.
+- **Watchlist** and **Next up:** the cards the paired Muse sends, with stale
+  marking and a countdown computed on the device.
+- **Hours:** the dated offices, built into the image, read a page at a time with
+  each Latin line above its own translation.
+- **Prayers:** common prayers, opened from the beads at the end of the hour strip.
+- **Settings:** frontlight, refresh, orientation, Hours text size, tradition,
+  clock format, timezone, sleep and the return to CrossPoint.
+
+Right moves forward, Left moves back, Power returns to Muse, and holding Right
+opens Settings; touch targets match what is on screen. The clock is set from the
+network once Muse is connected. See [display, settings and commands](docs/usage.md).
+
+These screens are rendered and checked on the host by
+`esp32/tools/pocket/test_ui.py`. They have been installed on one X4 Pro during
+development but have not been systematically verified on hardware, and the
+inherited upstream hardware validation does not cover them. The prayer texts in
+`tools/office/prayers.json` were entered by hand and still need proofreading.
+
+Two earlier drafts are kept for reference and are not part of the build:
+`esp32/main/office/engine.cpp` and `engine.h`, a first layout engine for an
+ordinary-only office, and `tools/office/build_content.py` with its output
+`benedictine.json`, which prepared that ordinary without a calendar.
 
 You need an **X4 Pro**, **CrossPoint 1.6.5 for X4 Pro** in the recovery slot, a microSD
 card, Wi-Fi, Muse Developer mode, your own SDK token, and **ESP-IDF 6.0.1**.
@@ -66,7 +90,7 @@ The X3 and ordinary X4 are not supported by this firmware.
 
 1. [Build and privately add your token](docs/build.md).
 2. [Install, pair and recover](docs/install.md) using CrossPoint’s **app-only SD updater**.
-3. [Use the existing firmware commands](docs/usage.md).
+3. [Use the screens, settings and commands](docs/usage.md).
 
 Keep the bootloader, partition table and CrossPoint recovery slot intact. Remote
 firmware updates remain disabled. A packaged firmware image contains your token:

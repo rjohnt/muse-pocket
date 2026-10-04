@@ -12,7 +12,7 @@ view reads a dated prayer pack built into the firmware and needs no Muse.
   were updated. A card older than a day is marked stale; an event disappears an
   hour after it ends.
 - **Hours:** the office for the active hour, Latin above English, one page at a
-  time. Select another hour from the strip; **Now** returns to the clock.
+  time. Tap another hour on the strip to read it; **Now** returns to the clock.
 
 - **Prayers:** common prayers (Angelus, the Rosary prayers, the Prayer of St
   Francis, a Sacred Heart prayer), opened from the beads at the end of the hour
