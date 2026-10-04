@@ -20,9 +20,9 @@ namespace {
 constexpr int LEFT = 24, RIGHT = W - 24, WIDE = RIGHT - LEFT;
 constexpr int RULE_Y = 44, HUD_Y = 52, TABS_Y = 738, CARD_TABS_Y = 96;
 constexpr int GEAR_X = 432, CLOSE_X = 392, ICON_Y = 11;
-constexpr int STRIP_L = 58, STRIP_R = 384, BODY_TOP = 186, REST_TOP = 110, BODY_BOTTOM = 756, FOOTER_Y = 768;
+constexpr int STRIP_L = 24, STRIP_R = 414, BODY_TOP = 186, REST_TOP = 110, BODY_BOTTOM = 756, FOOTER_Y = 768;
 // The beads at the end of the hour strip open the common prayers.
-constexpr int BEADS_L = 388, BEADS_R = 424, PRAYER_TOP = 116, PRAYER_REST = 58, LIST_TOP = 112, LIST_PITCH = 56;
+constexpr int BEADS_L = 420, BEADS_R = 456, PRAYER_TOP = 116, PRAYER_REST = 58, LIST_TOP = 112, LIST_PITCH = 56;
 constexpr int PRAYERS_RITE = 2, MAX_PRAYERS = 11;
 constexpr int ROWS_Y = 96, ROW_PITCH = 56;
 constexpr uint8_t GREY = 0xb0;
@@ -346,8 +346,6 @@ void footer(Raster& r, int page, int pages) {
 }
 // The day's hours as a strip, ending in the beads that open the prayers.
 void strip(Raster& r, const State& s, const Hours& h, bool prayers) {
-    r.text("\xe2\x86\x90", LEFT, 56);
-    r.right("\xe2\x86\x92", RIGHT, 56);
     int position = 0;
     for (int i = 0; i < h.count; ++i) if (h.visible[i] == h.active) position = i;
     for (int i = 0; i < h.count; ++i) {
@@ -524,8 +522,7 @@ Hit hit(const State& s, int x, int y) {
     if (s.view == View::Prayers) {
         if (s.prayer >= 0) return {x < W / 3 ? Action::PrevPage : Action::NextPage, 0};
         if (y < 96) {
-            if (x >= BEADS_L && x < BEADS_R) return {};
-            if (x < STRIP_L || x >= BEADS_R) return {Action::OpenHours, 0};
+            if (x >= STRIP_R) return {};
             Hours h = hours(s);
             return {Action::SelectHour, h.visible[std::clamp((x - STRIP_L) * h.count / (STRIP_R - STRIP_L), 0, h.count - 1)]};
         }
@@ -536,8 +533,7 @@ Hit hit(const State& s, int x, int y) {
     if (s.view == View::Hours) {
         Hours h = hours(s);
         if (y < 96) {
-            if (x < STRIP_L) return {Action::PrevHour, 0};
-            if (x >= BEADS_R) return {Action::NextHour, 0};
+            // Tap an hour to read it; the beads open the prayers.
             if (x >= STRIP_R) return {Action::Prayers, 0};
             return {Action::SelectHour, h.visible[std::clamp((x - STRIP_L) * h.count / (STRIP_R - STRIP_L), 0, h.count - 1)]};
         }

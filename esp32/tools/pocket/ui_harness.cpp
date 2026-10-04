@@ -178,11 +178,9 @@ int main(int argc, char** argv) {
     s.page = 0;
     CHECK(hit(s, 440, 20).action == Action::Settings);
     CHECK(hit(s, 400, 20).action == Action::CloseHours);
-    CHECK(hit(s, 30, 70).action == Action::PrevHour);
-    CHECK(hit(s, 450, 70).action == Action::NextHour);
-    Hit pick = hit(s, 80, 70);
+    Hit pick = hit(s, 30, 70);
     CHECK(pick.action == Action::SelectHour && pick.value == 0);
-    pick = hit(s, 375, 70);
+    pick = hit(s, 400, 70);
     CHECK(pick.action == Action::SelectHour && pick.value == 7);
     CHECK(hit(s, 430, 120).action == Action::Now);
     // Later pages drop the title block, so the same spot turns the page.
@@ -213,7 +211,7 @@ int main(int argc, char** argv) {
     std::printf("offices %d, longest %d pages\n", offices, most);
 
     // The beads at the end of the hour strip lead to the common prayers.
-    CHECK(hit(s, 400, 70).action == Action::Prayers);
+    CHECK(hit(s, 440, 70).action == Action::Prayers);
     CHECK(hit(s, 370, 70).action == Action::SelectHour);
     State praying = s;
     praying.view = View::Prayers;
