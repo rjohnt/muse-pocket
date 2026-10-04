@@ -73,7 +73,8 @@ set(GADGET_REQUIRES
 
 # E-paper has its own status screen in place of led_status.c.
 if(CONFIG_HOMEHUB_LED_BACKEND_XTEINK_X4_PRO)
-    list(APPEND GADGET_SRCS "pocket_status.cpp" "pocket_recovery.c" "pocket_token.c")
+    list(APPEND GADGET_SRCS "pocket_status.cpp" "pocket_recovery.c" "pocket_token.c"
+        "office/ui.cpp" "office/pack.cpp" "office/raster.cpp" "office/font_data.cpp")
 elseif(CONFIG_HOMEHUB_LED_BACKEND_RETERMINAL_UC8179)
     list(APPEND GADGET_SRCS "epaper_status.c")
 else()
@@ -107,3 +108,16 @@ idf_component_register(
     PRIV_INCLUDE_DIRS "../avatar"
     REQUIRES ${GADGET_REQUIRES}
 )
+
+if(CONFIG_HOMEHUB_LED_BACKEND_XTEINK_X4_PRO)
+    # Dated prayer pack, packed from the tracked JSON so the two cannot drift.
+    idf_build_get_property(python PYTHON)
+    set(office_json "${CMAKE_CURRENT_LIST_DIR}/../../tools/office/office-pack.json")
+    set(office_tool "${CMAKE_CURRENT_LIST_DIR}/../../tools/office/build_firmware_pack.py")
+    set(office_bin "${CMAKE_BINARY_DIR}/office.bin")
+    add_custom_command(OUTPUT "${office_bin}"
+        COMMAND "${python}" "${office_tool}" "${office_json}" "${office_bin}"
+        DEPENDS "${office_json}" "${office_tool}" VERBATIM)
+    add_custom_target(office_pack DEPENDS "${office_bin}")
+    target_add_binary_data(${COMPONENT_LIB} "${office_bin}" BINARY DEPENDS office_pack)
+endif()

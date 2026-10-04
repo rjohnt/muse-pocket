@@ -34,7 +34,7 @@ CrossPoint writes the inactive firmware slot. Its own application stays in the
 other slot. Muse Pocket does not replace the reader's bootloader or partition
 table, and it keeps existing pairing and Wi-Fi storage.
 
-On first boot, press **Right** to open Muse Pocket Settings. The recovery row
+On first boot, hold **Right** for a second to open Muse Pocket Settings. The recovery row
 should say **Return to CrossPoint**. If it says **CrossPoint not verified**, stop
 and check the installed version and build: this firmware deliberately confirms
 only the exact official CrossPoint 1.6.5 X4 Pro image. Do not bypass the check.

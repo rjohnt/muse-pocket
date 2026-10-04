@@ -1,13 +1,37 @@
 # Display, settings and Muse commands
 
-Muse Pocket is a companion screen. It receives a character image and caption
-through the Muse Gadget SDK's paired connection; it does not expose a public web
-API or poll a separate activity feed.
+Muse Pocket is a companion screen. It receives a character image, caption,
+watch list and next event through the Muse Gadget SDK's paired connection; it
+does not expose a public web API or poll a separate activity feed. The Hours
+view reads a dated prayer pack built into the firmware and needs no Muse.
+
+## Screens
+
+- **Muse:** the active prayer hour and clock, the character, its name and caption.
+- **Watches** and **Next up:** the cards your Muse last sent, with the time they
+  were updated. A card older than a day is marked stale; an event disappears an
+  hour after it ends.
+- **Hours:** the office for the active hour, Latin above English, one page at a
+  time. Select another hour from the strip; **Now** returns to the clock.
+
+Tap the hour line to open Hours, a tab to open a card, the gear for Settings and
+the cross to return to Muse. In Hours, tap the right of the text for the next page
+and the left third for the previous one. Turning a page holds the hour you are
+reading until you choose Now.
+
+Without touch, a short press of **Right** moves forward: Muse, Watches, Next up,
+then each page of the current hour. A short press of **Power** returns to Muse
+from any of them.
+
+The clock is set from the network once Muse is connected, and keeps running
+through sleep. Until then the hour line shows `--:--` and Hours asks for Wi-Fi.
+The bundled pack covers October 2–November 2, 2026, general Monastic 1963
+calendar; other dates and the modern tradition are shown as not loaded.
 
 ## Settings and controls
 
-Press **Right** on the main screen to open Settings, then press Right to move
-through the rows. Press **Power** to change the selected setting.
+Hold **Right** for a second to open Settings, or tap the gear. Press Right to
+move through the rows and **Power** to change the selected setting.
 
 | Setting | Choices |
 | --- | --- |
@@ -15,13 +39,16 @@ through the rows. Press **Power** to change the selected setting.
 | Warmth | Cool/warm balance |
 | Refresh | 2, 5, 15 or 30 seconds |
 | Orientation | Normal or flipped |
+| Hours text | Small, medium or large Latin and English |
+| Tradition | Benedictine; Modern has no bundled texts |
+| Clock | 24-hour or 12-hour |
+| Timezone | Central, UTC, Eastern, Mountain, Pacific, Rome or London |
 | Sleep | Preserve the ink and stop live updates |
 | Return to CrossPoint | Hold Power for 3 seconds to return |
 | Back to Muse | Return to the companion screen |
 
-Brightness, warmth, refresh and orientation are saved in the separate
-`muse_pocket` settings area. Power wakes a sleeping reader. On the main screen,
-Power performs a clean refresh; holding it for 3 seconds sleeps the device.
+Settings are saved in the separate `muse_pocket` settings area. Power wakes a
+sleeping reader. On the Muse screen, Power performs a clean refresh; holding it for 3 seconds sleeps the device.
 Left confirms pairing or retries setup. Double-tapping Left rescans Wi-Fi;
 holding it for 5 seconds resets Muse setup and forgets its Wi-Fi credentials.
 
@@ -34,15 +61,25 @@ refresh; the display also performs a full refresh after ten incremental updates.
 | --- | --- | --- |
 | `display.draw_url` | `url`, optional `row` | Draw an image; keep the caption |
 | `pocket.set_status` | `text`, up to 240 UTF-8 bytes | Set the caption below the character |
+| `pocket.set_name` | `name`, up to 63 UTF-8 bytes | Set and save the name above the caption |
 | `pocket.set_frontlight` | `brightness`, `warmth`, both 0–100 | Change and save the frontlight |
 | `display.show_animation` | None | Return to the neutral placeholder icon |
+| `pocket.set_watch_digest` | `payload`, a JSON string | Replace the watch list |
+| `pocket.set_next_up` | `payload`, a JSON string | Replace the next event |
+| `pocket.get_status` | None | Connection, accepted command count, last command |
+
+The watch payload has `updated` and up to ten `items`, each with `label`,
+`state`, `note` and `checked`. The event payload has `updated`, `title`, `when`,
+`ends` and optional `detail`; an empty title clears it. Times are ISO 8601 with
+an offset. A payload that does not match is refused and the previous card stays.
+The cards are held in memory and are empty after a restart.
 
 Use a **baseline JPEG** prepared for the **480×480 character canvas**, or
 big-endian RGB565 data. Gray is converted to black and white with dithering.
 An incomplete image download leaves the previous character visible.
-Captions show up to four lines of 35 ASCII characters each. Longer text can be
-accepted up to the byte limit, but only the visible lines are drawn. Keep status
-updates short and use plain ASCII; accented letters and emoji become `?`.
+Captions show up to four wrapped lines. Longer text can be accepted up to the
+byte limit, but only the visible lines are drawn. Latin accents are drawn;
+emoji and other scripts become `?`.
 
 Example command parameters:
 
@@ -71,8 +108,8 @@ must execute the display commands and decide when its activity has changed.
 - **Connected, but no character:** ask your Muse to send its own character as a
   480×480 baseline JPEG using `display.draw_url`, then set the current activity
   with `pocket.set_status`. Ask it to tell you if either command fails.
-- **Name still says Muse Pocket:** the paired identity request has not returned.
-  Check the Muse connection and wait for reconnect.
+- **Name still says Muse Pocket:** the paired identity carried no name. Ask your
+  Muse to call `pocket.set_name` with its own name; the reader keeps it.
 - **Caption stopped changing:** the Muse must send a new status command. It is
   not a timer that invents new activities.
 - **Reconnecting:** check the chosen Wi-Fi network and the Muse service. Your

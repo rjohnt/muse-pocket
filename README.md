@@ -2,8 +2,9 @@
 
 A development fork of [viticci/muse-pocket](https://github.com/viticci/muse-pocket),
 with a Mac preview for a personal e-paper companion. The original firmware targets
-the **Xteink X4 Pro**. This fork’s new application features currently run on the Mac;
-they have not been integrated into or verified on the reader.
+the **Xteink X4 Pro**. This fork’s features run in the Mac preview and are built
+into the firmware; the firmware screens are checked by host rendering tests and
+have not yet been verified on the reader.
 
 ## Preview features
 

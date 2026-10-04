@@ -11,19 +11,36 @@
 #include "esp_heap_caps.h"
 #include "esp_log.h"
 #include "esp_sleep.h"
+#include "esp_netif_sntp.h"
+#include "cJSON.h"
 #include "nvs.h"
+#include "office/ui.h"
 #include "freertos/semphr.h"
 #include <algorithm>
 #include <cstring>
 #include <cstdio>
+#include <ctime>
+#include <memory>
+#include <sys/time.h>
 extern "C" {
 #include "led_status.h"
-#include "pixel_font.h"
 #include "happy_anim.h"
 }
+// Dated prayer pack built from tools/office/office-pack.json at compile time.
+extern const uint8_t office_pack_start[] asm("_binary_office_bin_start");
+extern const uint8_t office_pack_end[] asm("_binary_office_bin_end");
 
 namespace {
-constexpr int W=480, H=800, AVATAR=480, AVATAR_Y=104;
+using pocket_ui::Action;
+using pocket_ui::View;
+constexpr int W=pocket_ui::W, H=pocket_ui::H, AVATAR=pocket_ui::AVATAR, AVATAR_Y=pocket_ui::AVATAR_Y;
+// Settings rows. Recovery needs a deliberate hold and is never activated by a tap.
+enum { ROW_LIGHT, ROW_WARMTH, ROW_CADENCE, ROW_FLIP, ROW_TEXT, ROW_RITE, ROW_CLOCK, ROW_ZONE, ROW_SLEEP, ROW_RECOVERY, ROW_BACK, ROWS };
+const char* const text_sizes[]={"small","medium","large"};
+constexpr int64_t CLOCK_VALID_AFTER=1700000000;
+const char* const zone_names[]={"Central","UTC","Eastern","Mountain","Pacific","Rome","London"};
+const char* const zone_rules[]={"CST6CDT,M3.2.0,M11.1.0","UTC0","EST5EDT,M3.2.0,M11.1.0","MST7MDT,M3.2.0,M11.1.0","PST8PDT,M3.2.0,M11.1.0","CET-1CEST,M3.5.0,M10.5.0/3","GMT0BST,M3.5.0/1,M10.5.0"};
+constexpr int ZONES=7;
 constexpr size_t FRAME=800*480/8;
 constexpr uint8_t bayer[4][4]={{0,8,2,10},{12,4,14,6},{3,11,1,9},{15,7,13,5}};
 const char* TAG="link.pocket.ui";
@@ -34,6 +51,15 @@ TaskHandle_t renderer;
 uint8_t *canvas, *avatar, *staging, *frame, *shown;
 bool custom_avatar=false, custom_status=false, loading=false, menu=false, flipped=false, sleeping=false;
 bool recovery=false, force_full=true, initialized=false;
+// Reading state for the pages reached from the Muse screen.
+View page_view=View::Muse;
+bool following=true, h12=false, interactive=false, sntp_started=false;
+int rite=0, zone=0, text_size=1, reading_hour=0, page=0, commands_received=0;
+uint32_t page_key=0;
+char last_command[32]="";
+char custom_name[64]="";
+pocket_ui::Cards cards;
+char setting_rows[ROWS][48];
 int selected=0, brightness=25, warmth=50, cadence=5, refreshes=0, battery=-1;
 int64_t last_status_us=0, last_draw_us=0;
 uint32_t requested_frame=0, finished_frame=0;
@@ -75,6 +101,8 @@ void save_settings() {
     if(nvs_open("muse_pocket",NVS_READWRITE,&h)!=ESP_OK) return;
     nvs_set_u8(h,"light",brightness); nvs_set_u8(h,"warmth",warmth);
     nvs_set_u8(h,"cadence",cadence); nvs_set_u8(h,"flip",flipped);
+    nvs_set_u8(h,"rite",rite); nvs_set_u8(h,"h12",h12); nvs_set_u8(h,"zone",zone);
+    nvs_set_u8(h,"tsize",text_size);
     nvs_commit(h); nvs_close(h);
 }
 void light(int b, int warm) {
@@ -101,6 +129,12 @@ void light_init() {
         if(nvs_get_u8(h,"warmth",&value)==ESP_OK) warmth=std::min<int>(100,value);
         if(nvs_get_u8(h,"cadence",&value)==ESP_OK && (value==2||value==5||value==15||value==30)) cadence=value;
         if(nvs_get_u8(h,"flip",&value)==ESP_OK) flipped=value!=0;
+        if(nvs_get_u8(h,"rite",&value)==ESP_OK) rite=value==1;
+        if(nvs_get_u8(h,"h12",&value)==ESP_OK) h12=value!=0;
+        if(nvs_get_u8(h,"zone",&value)==ESP_OK&&value<ZONES) zone=value;
+        if(nvs_get_u8(h,"tsize",&value)==ESP_OK&&value<3) text_size=value;
+        size_t length=sizeof(custom_name);
+        if(nvs_get_str(h,"name",custom_name,&length)!=ESP_OK) custom_name[0]=0;
         nvs_close(h);
     }
     light(brightness,warmth);
@@ -134,32 +168,6 @@ void rect(int x,int y,int w,int h,uint8_t color) {
     int x0=std::max(0,x),y0=std::max(0,y),x1=std::min(W,x+w),y1=std::min(H,y+h);
     for(int row=y0;row<y1;++row) if(x1>x0) memset(canvas+row*W+x0,color,x1-x0);
 }
-void text(const char* str,int x,int y,int scale,int max_chars=80) {
-    for(int i=0;str[i]&&i<max_chars;++i) {
-        unsigned char ch=str[i]; if(ch<32||ch>126) ch='?';
-        const uint8_t* glyph=pixel_font[ch-32];
-        for(int gx=0;gx<5;++gx) for(int gy=0;gy<8;++gy)
-            if(glyph[gx]&(1<<gy)) rect(x+(i*6+gx)*scale,y+gy*scale,scale,scale,0);
-    }
-}
-void centred(const char* str,int y,int max_scale) {
-    int len=strlen(str),scale=max_scale;
-    while(scale>2&&len*6*scale>W-32) --scale;
-    len=std::min(len,(W-32)/(6*scale));
-    text(str,(W-len*6*scale)/2,y,scale,len);
-}
-void wrapped(const char* str,int y) {
-    // Four readable lines; preserve newlines and prefer word boundaries.
-    size_t pos=0,len=strlen(str);
-    for(int line=0;line<4&&pos<len;++line) {
-        size_t end=std::min(pos+35,len),newline=pos;
-        while(newline<end&&str[newline]!='\n') ++newline;
-        if(newline<end) end=newline;
-        else if(end<len) { size_t space=end; while(space>pos&&str[space]!=' ') --space; if(space>pos) end=space; }
-        char row[36]={}; memcpy(row,str+pos,end-pos); text(row,30,y+line*32,2);
-        pos=end; while(pos<len&&(str[pos]==' '||str[pos]=='\n')) ++pos;
-    }
-}
 uint8_t luma(uint16_t rgb) {
     int r=((rgb>>11)&31)*255/31,g=((rgb>>5)&63)*255/63,b=(rgb&31)*255/31;
     return (r*77+g*150+b*29)>>8;
@@ -172,39 +180,46 @@ void default_character() {
         rect(x0+x*scale,y0+y*scale,scale,scale,c?luma((be>>8)|(be<<8)):255);
     }
 }
+void apply_zone() { setenv("TZ",zone_rules[zone],1); tzset(); }
+bool clock_valid(int64_t now) { return now>CLOCK_VALID_AFTER; }
+// Call with lock_ held. Row text lives in setting_rows until the next call.
+pocket_ui::State snapshot() {
+    pocket_ui::State s;
+    s.view=sleeping?View::Sleeping:menu?View::Settings:page_view;
+    s.name=custom_name[0]?custom_name:title; s.caption=status; s.connection=connection(state);
+    s.connected=state==LED_STATE_WS_CONNECTED; s.battery=battery;
+    s.avatar=custom_avatar?avatar:nullptr;
+    s.now=time(nullptr); s.clock_valid=clock_valid(s.now); s.h12=h12; s.rite=rite; s.text_size=text_size; s.zone=zone_names[zone];
+    s.following=following; s.reading_hour=reading_hour; s.cards=&cards;
+    snprintf(setting_rows[ROW_LIGHT],48,"Brightness: %d%%",brightness);
+    snprintf(setting_rows[ROW_WARMTH],48,"Warmth: %d%%",warmth);
+    snprintf(setting_rows[ROW_CADENCE],48,"Refresh: every %ds",cadence);
+    snprintf(setting_rows[ROW_FLIP],48,"Orientation: %s",flipped?"flipped":"normal");
+    snprintf(setting_rows[ROW_TEXT],48,"Hours text: %s",text_sizes[text_size]);
+    snprintf(setting_rows[ROW_RITE],48,"Tradition: %s",rite?"Modern (texts not loaded)":"Benedictine");
+    snprintf(setting_rows[ROW_CLOCK],48,"Clock: %s",h12?"12-hour":"24-hour");
+    snprintf(setting_rows[ROW_ZONE],48,"Timezone: %s",zone_names[zone]);
+    snprintf(setting_rows[ROW_SLEEP],48,"Sleep");
+    snprintf(setting_rows[ROW_RECOVERY],48,"%s",recovery?"Return to CrossPoint":"CrossPoint not verified");
+    snprintf(setting_rows[ROW_BACK],48,"Back to Muse");
+    for(int i=0;i<ROWS;++i) s.rows[i]=setting_rows[i];
+    s.row_count=ROWS; s.selected=selected;
+    // A new hour or day starts from its first page.
+    if(page_view==View::Hours) {
+        pocket_ui::Hours h=pocket_ui::hours(s);
+        // Text size is left out: resizing keeps the reader near the same place.
+        uint32_t key=h.date*16+h.reading*2+rite;
+        if(key!=page_key) {page_key=key;page=0;}
+    }
+    // Settings and sleep keep the reading place of the page beneath them.
+    if(s.view==page_view) page=std::clamp(page,0,pocket_ui::page_count(s)-1);
+    s.page=page;
+    return s;
+}
 void compose() {
-    memset(canvas,255,W*H);
-    char bat[20]; snprintf(bat,sizeof(bat),battery>=0?"%d%%":"--%%",battery);
-    text("MUSE POCKET",24,20,2); text(bat,390,20,2);
-    if(sleeping) {
-        centred("Sleeping",62,4); default_character();
-        centred("Press POWER to wake",650,2); return;
-    }
-    if(menu) {
-        centred("Settings",65,4);
-        char rows[7][64];
-        snprintf(rows[0],64,"Brightness: %d%%",brightness);
-        snprintf(rows[1],64,"Warmth: %d%%",warmth);
-        snprintf(rows[2],64,"Refresh: every %ds",cadence);
-        snprintf(rows[3],64,"Orientation: %s",flipped?"flipped":"normal");
-        snprintf(rows[4],64,"Sleep");
-        snprintf(rows[5],64,"%s",recovery?"Return to CrossPoint":"CrossPoint not verified");
-        snprintf(rows[6],64,"Back to Muse");
-        for(int i=0;i<7;++i) {
-            if(i==selected) {rect(14,156+i*72,W-28,3,0);rect(14,210+i*72,W-28,3,0);text(">",22,172+i*72,3);}
-            text(rows[i],48,174+i*72,2);
-        }
-        text("RIGHT: next  POWER: change",30,720,2);
-        text("Hold POWER on Return to restore",24,753,2);
-        return;
-    }
-    centred(title,60,4);
-    if(custom_avatar) memcpy(canvas+AVATAR_Y*W,avatar,AVATAR*W);
-    else default_character();
-    rect(24,603,W-48,2,0);
-    wrapped(status,625);
-    centred(connection(state),755,2);
-    text("RIGHT: settings",140,782,1);
+    pocket_ui::State s=snapshot();
+    pocket_ui::render(canvas,s);
+    if(!s.avatar&&(s.view==View::Muse||s.view==View::Sleeping)) default_character();
 }
 void encode() {
     memset(frame,255,FRAME);
@@ -221,7 +236,7 @@ void render_task(void*) {
         wait=portMAX_DELAY;
         xSemaphoreTake(lock_,portMAX_DELAY);
         int64_t now=esp_timer_get_time();
-        bool immediate=menu||sleeping||force_full||requested_frame>finished_frame;
+        bool immediate=menu||sleeping||force_full||interactive||requested_frame>finished_frame;
         if(!immediate && last_status_us>last_draw_us && now-last_draw_us<cadence*1000000LL) {
             wait=pdMS_TO_TICKS(std::max<int64_t>(1,(cadence*1000000LL-(now-last_draw_us))/1000));
             xSemaphoreGive(lock_); continue;
@@ -231,7 +246,7 @@ void render_task(void*) {
         bool full=force_full||refreshes>=10;
         bool go_to_sleep=sleeping;
         uint32_t ticket=requested_frame;
-        force_full=false;
+        force_full=false;interactive=false;
         xSemaphoreGive(lock_);
         if((changed || full) && bus.healthy()) {
             panel->display(bus,frame,shown,full?freeink::RefreshMode::Full:freeink::RefreshMode::Fast,true);
@@ -269,37 +284,133 @@ void sleep_now() {
 void activate() {
     xSemaphoreTake(lock_,portMAX_DELAY);
     switch(selected) {
-    case 0: brightness=(brightness+25)%125; light(brightness,warmth);save_settings();break;
-    case 1: warmth=(warmth+25)%125; light(brightness,warmth);save_settings();break;
-    case 2: for(int i=0;i<4;++i) if(cadence==cadences[i]) {cadence=cadences[(i+1)%4];break;} save_settings();break;
-    case 3: flipped=!flipped;force_full=true;save_settings();break;
-    case 4: xSemaphoreGive(lock_);sleep_now();return;
-    case 5: break; // Recovery requires a deliberate hold, never a tap.
-    case 6: menu=false;force_full=true;break;
+    case ROW_LIGHT: brightness=(brightness+25)%125; light(brightness,warmth);save_settings();break;
+    case ROW_WARMTH: warmth=(warmth+25)%125; light(brightness,warmth);save_settings();break;
+    case ROW_CADENCE: for(int i=0;i<4;++i) if(cadence==cadences[i]) {cadence=cadences[(i+1)%4];break;} save_settings();break;
+    case ROW_FLIP: flipped=!flipped;force_full=true;save_settings();break;
+    case ROW_TEXT: {
+        // Stay at the same proportion of the office when the page count changes.
+        pocket_ui::State reading=snapshot();reading.view=View::Hours;
+        int before=pocket_ui::page_count(reading);
+        text_size=(text_size+1)%3;save_settings();
+        reading.text_size=text_size;
+        if(page_view==View::Hours) page=page*pocket_ui::page_count(reading)/before;
+        break;
+    }
+    case ROW_RITE: rite=!rite;following=true;page=0;save_settings();break;
+    case ROW_CLOCK: h12=!h12;save_settings();break;
+    case ROW_ZONE: zone=(zone+1)%ZONES;apply_zone();save_settings();break;
+    case ROW_SLEEP: xSemaphoreGive(lock_);sleep_now();return;
+    case ROW_RECOVERY: break; // Recovery requires a deliberate hold, never a tap.
+    case ROW_BACK: menu=false;force_full=true;break;
     }
     xSemaphoreGive(lock_);notify();
 }
+// Call with lock_ held.
+void show(View view) {
+    if(view==View::Hours&&page_view!=View::Hours) following=true;
+    if(page_view!=view) {page=0;force_full=true;}
+    page_view=view;
+}
+void pick_hour(const pocket_ui::Hours& h,int step) {
+    int at=0;
+    for(int i=0;i<h.count;++i) if(h.visible[i]==h.reading) at=i;
+    following=false;reading_hour=h.visible[(at+step+h.count)%h.count];page=0;
+}
+// Turning a page pins the hour being read, so the clock cannot move it mid-prayer.
+void turn(const pocket_ui::State& s,int step) {
+    if(page_view==View::Hours&&following) {following=false;reading_hour=pocket_ui::hours(s).reading;}
+    page=std::clamp(page+step,0,pocket_ui::page_count(s)-1);
+}
+// Returns true when a settings row was tapped and should be activated.
+bool apply(pocket_ui::Hit hit) {
+    xSemaphoreTake(lock_,portMAX_DELAY);
+    pocket_ui::State s=snapshot();
+    bool row=false;
+    switch(hit.action) {
+    case Action::None: xSemaphoreGive(lock_);return false;
+    case Action::Settings: menu=true;selected=0;force_full=true;break;
+    case Action::Muse: if(menu){menu=false;force_full=true;}else show(View::Muse);break;
+    case Action::Watches: show(View::Watches);break;
+    case Action::NextUp: show(View::NextUp);break;
+    case Action::OpenHours: show(View::Hours);break;
+    case Action::CloseHours: show(View::Muse);break;
+    case Action::PrevHour: pick_hour(pocket_ui::hours(s),-1);break;
+    case Action::NextHour: pick_hour(pocket_ui::hours(s),1);break;
+    case Action::SelectHour: following=false;reading_hour=hit.value;page=0;break;
+    case Action::Now: following=true;page=0;break;
+    case Action::PrevPage: turn(s,-1);break;
+    case Action::NextPage: turn(s,1);break;
+    case Action::Row: selected=std::clamp(hit.value,0,ROWS-1);row=true;break;
+    }
+    interactive=true;
+    xSemaphoreGive(lock_);
+    return row;
+}
+// RIGHT steps through everything without touch: Muse, Watches, Next up, then
+// each page of the current hour, and back to Muse.
+void advance() {
+    xSemaphoreTake(lock_,portMAX_DELAY);
+    if(sleeping) {xSemaphoreGive(lock_);return;}
+    if(menu) selected=(selected+1)%ROWS;
+    else {
+        pocket_ui::State s=snapshot();
+        bool more=page<pocket_ui::page_count(s)-1;
+        switch(page_view) {
+        case View::Muse: show(View::Watches);break;
+        case View::Watches: if(more) turn(s,1); else show(View::NextUp);break;
+        case View::NextUp: show(View::Hours);break;
+        default: if(more) turn(s,1); else show(View::Muse);break;
+        }
+    }
+    interactive=true;
+    xSemaphoreGive(lock_);notify();
+}
+void toggle_menu() {
+    xSemaphoreTake(lock_,portMAX_DELAY);
+    if(!sleeping) {menu=!menu;selected=0;force_full=true;}
+    xSemaphoreGive(lock_);notify();
+}
+// Wi-Fi time keeps the hours and countdowns honest. Started once Muse is
+// connected, when the network stack is certainly up.
+void keep_time() {
+    static int64_t last_minute=0;
+    xSemaphoreTake(lock_,portMAX_DELAY);
+    bool start=!sntp_started&&state==LED_STATE_WS_CONNECTED;
+    if(start) sntp_started=true;
+    xSemaphoreGive(lock_);
+    if(start) {
+        esp_sntp_config_t config=ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
+        if(esp_netif_sntp_init(&config)!=ESP_OK) ESP_LOGW(TAG,"time sync unavailable");
+    }
+    int64_t minute=time(nullptr)/60;
+    if(minute!=last_minute) {
+        bool first=last_minute==0;
+        last_minute=minute;
+        if(!first&&clock_valid(minute*60)) notify();
+    }
+}
 void input_task(void*) {
-    bool was_right=false,was_power=false,fired=false,touched=false;
+    bool was_right=false,was_power=false,fired=false,right_fired=false,touched=false;
     int64_t right_down=0,power_down=0,last_battery=0;
     for(;;) {
         int64_t now=esp_timer_get_time();
         bool right=digitalRead(7)==LOW,power=digitalRead(3)==LOW;
-        if(right&&!was_right) right_down=now;
-        if(!right&&was_right&&now-right_down>=50000) {
-            xSemaphoreTake(lock_,portMAX_DELAY);
-            if(!menu) {menu=true;selected=0;} else selected=(selected+1)%7;
-            xSemaphoreGive(lock_);notify();
-        }
+        if(right&&!was_right) {right_down=now;right_fired=false;}
+        // Hold RIGHT for Settings; a short press moves on.
+        if(right&&!right_fired&&now-right_down>=800000) {right_fired=true;toggle_menu();}
+        if(!right&&was_right&&!right_fired&&now-right_down>=50000) advance();
         if(power&&!was_power) {power_down=now;fired=false;}
         if(power&&!fired&&now-power_down>=3000000) {
             fired=true;
-            xSemaphoreTake(lock_,portMAX_DELAY);bool restore=menu&&selected==5&&recovery;xSemaphoreGive(lock_);
+            xSemaphoreTake(lock_,portMAX_DELAY);bool restore=menu&&selected==ROW_RECOVERY&&recovery;xSemaphoreGive(lock_);
             if(restore) pocket_return_to_crosspoint(); else sleep_now();
         }
         if(!power&&was_power&&!fired&&now-power_down>=50000) {
-            xSemaphoreTake(lock_,portMAX_DELAY);bool in_menu=menu;xSemaphoreGive(lock_);
+            xSemaphoreTake(lock_,portMAX_DELAY);bool in_menu=menu,away=page_view!=View::Muse;xSemaphoreGive(lock_);
             if(in_menu) activate();
+            // POWER is the way home from Watches, Next up and Hours.
+            else if(away) {apply({Action::CloseHours,0});notify();}
             else {xSemaphoreTake(lock_,portMAX_DELAY);force_full=true;xSemaphoreGive(lock_);notify();}
         }
         uint8_t touch_status=0;
@@ -310,11 +421,9 @@ void input_task(void*) {
                 int x=point[0]|point[1]<<8,y=point[2]|point[3]<<8;
                 xSemaphoreTake(lock_,portMAX_DELAY);
                 if(flipped) {x=W-1-x;y=H-1-y;}
-                bool change=menu&&x>=0&&x<W&&y>=156&&y<660;
-                if(change) selected=std::clamp((y-156)/72,0,6);
-                else if(y>=740) menu=!menu;
+                pocket_ui::Hit target=pocket_ui::hit(snapshot(),x,y);
                 xSemaphoreGive(lock_);
-                if(change) activate();else notify();
+                if(apply(target)) activate();else notify();
             }
             touched=contact;
             uint8_t clear[]={0x81,0x4e,0};i2c_master_transmit(touch,clear,sizeof(clear),50);
@@ -326,6 +435,7 @@ void input_task(void*) {
             }
             last_battery=now;
         }
+        keep_time();
         was_right=right;was_power=power;delay(30);
     }
 }
@@ -356,9 +466,11 @@ extern "C" bool led_status_init(void) {
     bus.begin({12,11,13,18,14,6},panel->spiHz(),panel->busyPolarity());panel->begin(bus);
     if(!bus.healthy()) return false;
     light_init();peripherals_init();recovery=pocket_recovery_available();
+    apply_zone();
+    pocket_ui::set_pack(office_pack_start,office_pack_end-office_pack_start);
     pinMode(7,INPUT_PULLUP);pinMode(3,INPUT_PULLUP);
-    if(xTaskCreate(render_task,"pocket_display",6144,nullptr,3,&renderer)!=pdPASS)return false;
-    if(xTaskCreate(input_task,"pocket_input",6144,nullptr,2,nullptr)!=pdPASS)return false;
+    if(xTaskCreate(render_task,"pocket_display",12288,nullptr,3,&renderer)!=pdPASS)return false;
+    if(xTaskCreate(input_task,"pocket_input",12288,nullptr,2,nullptr)!=pdPASS)return false;
     xSemaphoreTake(lock_,portMAX_DELAY);initialized=true;xSemaphoreGive(lock_);
     notify();return true;
 }
@@ -382,6 +494,18 @@ extern "C" void led_status_set_title(const char* value) {
 extern "C" void pocket_set_status(const char* value) {
     if(!renderer)return;
     xSemaphoreTake(lock_,portMAX_DELAY);custom_status=true;snprintf(status,sizeof(status),"%s",value?value:"");last_status_us=esp_timer_get_time();xSemaphoreGive(lock_);notify();
+}
+extern "C" bool pocket_set_name(const char* value) {
+    if(!renderer||!value||strlen(value)>=sizeof(custom_name))return false;
+    for(const char* c=value;*c;++c) if(static_cast<unsigned char>(*c)<32)return false;
+    xSemaphoreTake(lock_,portMAX_DELAY);
+    snprintf(custom_name,sizeof(custom_name),"%s",value);
+    nvs_handle_t h;
+    if(nvs_open("muse_pocket",NVS_READWRITE,&h)==ESP_OK) {
+        if(custom_name[0]) nvs_set_str(h,"name",custom_name); else nvs_erase_key(h,"name");
+        nvs_commit(h);nvs_close(h);
+    }
+    last_status_us=esp_timer_get_time();xSemaphoreGive(lock_);notify();return true;
 }
 extern "C" void pocket_set_frontlight(int value,int temperature) {
     if(!renderer)return;
@@ -429,4 +553,82 @@ extern "C" bool pocket_image_complete(void) {
     if(!renderer)return false;
     xSemaphoreTake(lock_,portMAX_DELAY);std::swap(avatar,staging);custom_avatar=true;loading=false;force_full=true;xSemaphoreGive(lock_);
     return await_frame(request_frame());
+}
+
+namespace {
+bool text_field(const cJSON* object,const char* key,char* out,size_t size,bool required) {
+    const cJSON* item=cJSON_GetObjectItem(object,key);
+    if(!item&&!required) {out[0]=0;return true;}
+    if(!cJSON_IsString(item)||!item->valuestring||strlen(item->valuestring)>=size) return false;
+    snprintf(out,size,"%s",item->valuestring);return true;
+}
+bool time_field(const cJSON* object,const char* key,int64_t* out) {
+    const cJSON* item=cJSON_GetObjectItem(object,key);
+    return cJSON_IsString(item)&&item->valuestring&&strlen(item->valuestring)<=50&&pocket_ui::parse_time(item->valuestring,out);
+}
+// A card's own timestamp sets the clock until Wi-Fi time arrives.
+void seed_clock(int64_t updated) {
+    if(clock_valid(time(nullptr))||!clock_valid(updated)) return;
+    struct timeval tv={};tv.tv_sec=updated;settimeofday(&tv,nullptr);
+}
+void accepted(const char* command) {
+    ++commands_received;snprintf(last_command,sizeof(last_command),"%s",command);
+    last_status_us=esp_timer_get_time();
+}
+}
+extern "C" bool pocket_set_watch_digest(const char* payload) {
+    if(!renderer||!payload||strlen(payload)>16384) return false;
+    cJSON* root=cJSON_Parse(payload);
+    std::unique_ptr<pocket_ui::Cards> next(new pocket_ui::Cards());
+    const cJSON* items=cJSON_GetObjectItem(root,"items");
+    bool ok=cJSON_IsObject(root)&&time_field(root,"updated",&next->watches_updated)&&cJSON_IsArray(items)&&cJSON_GetArraySize(items)<=pocket_ui::MAX_WATCHES;
+    const cJSON* item=nullptr;
+    if(ok) cJSON_ArrayForEach(item,items) {
+        pocket_ui::Watch& w=next->watches[next->watch_count];
+        ok=cJSON_IsObject(item)&&text_field(item,"label",w.label,sizeof(w.label),true)&&text_field(item,"state",w.state,sizeof(w.state),true)
+            &&text_field(item,"note",w.note,sizeof(w.note),true)&&time_field(item,"checked",&w.checked);
+        if(!ok) break;
+        ++next->watch_count;
+    }
+    cJSON_Delete(root);
+    if(!ok) return false;
+    seed_clock(next->watches_updated);
+    xSemaphoreTake(lock_,portMAX_DELAY);
+    cards.has_watches=true;cards.watches_updated=next->watches_updated;cards.watch_count=next->watch_count;
+    memcpy(cards.watches,next->watches,sizeof(cards.watches));
+    accepted("pocket.set_watch_digest");
+    xSemaphoreGive(lock_);notify();return true;
+}
+extern "C" bool pocket_set_next_up(const char* payload) {
+    if(!renderer||!payload||strlen(payload)>16384) return false;
+    cJSON* root=cJSON_Parse(payload);
+    std::unique_ptr<pocket_ui::Cards> next(new pocket_ui::Cards());
+    bool ok=cJSON_IsObject(root)&&time_field(root,"updated",&next->next_updated)&&text_field(root,"title",next->title,sizeof(next->title),true);
+    // An empty title clears the event; otherwise it needs a coherent time span.
+    if(ok&&next->title[0]) ok=time_field(root,"when",&next->when)&&time_field(root,"ends",&next->ends)&&next->ends>=next->when
+        &&text_field(root,"detail",next->detail,sizeof(next->detail),false);
+    cJSON_Delete(root);
+    if(!ok) return false;
+    seed_clock(next->next_updated);
+    xSemaphoreTake(lock_,portMAX_DELAY);
+    cards.has_next=next->title[0]!=0;cards.next_updated=next->next_updated;cards.when=next->when;cards.ends=next->ends;
+    memcpy(cards.title,next->title,sizeof(cards.title));memcpy(cards.detail,next->detail,sizeof(cards.detail));
+    accepted("pocket.set_next_up");
+    xSemaphoreGive(lock_);notify();return true;
+}
+extern "C" void pocket_note_command(const char* command) {
+    if(!renderer||!command)return;
+    xSemaphoreTake(lock_,portMAX_DELAY);++commands_received;snprintf(last_command,sizeof(last_command),"%s",command);xSemaphoreGive(lock_);
+}
+// Connection and counters only; never the displayed private content.
+extern "C" void pocket_get_status(const char** connection_out,int* received,char* last,size_t last_size) {
+    if(connection_out)*connection_out="starting";
+    if(received)*received=0;
+    if(last&&last_size)last[0]=0;
+    if(!renderer)return;
+    xSemaphoreTake(lock_,portMAX_DELAY);
+    if(connection_out)*connection_out=connection(state);
+    if(received)*received=commands_received;
+    if(last&&last_size)snprintf(last,last_size,"%s",last_command);
+    xSemaphoreGive(lock_);
 }
