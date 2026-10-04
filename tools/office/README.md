@@ -2,7 +2,8 @@
 
 `build_daily.py` runs the pinned [Divinum Officium](https://github.com/DivinumOfficium/divinum-officium)
 Perl engine locally. It resolves variable prayers ahead of time; the Mac preview
-reads the generated pack offline. The ESP32 consumer is not integrated yet.
+reads the generated pack offline. The firmware build packs the same JSON with
+`build_firmware_pack.py`; `build_fonts.py` regenerates its glyph subsets.
 
 The source revision is `b6e94c5825ba656b223e78bd2c49cf973f2eea1a`, using
 **Monastic – 1963**, Latin and traditional English. This is the general monastic

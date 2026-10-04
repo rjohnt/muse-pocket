@@ -376,6 +376,7 @@ static void fetch_task(void *arg) {
         // Keep the existing character when a download is incomplete.
         if(fail) pocket_image_abort();
         else if(!pocket_image_complete()) fail="display refresh failed";
+        else pocket_note_command("display.draw_url");
 #else
         // Show what arrived, even if the download broke off.
         led_status_draw_done();

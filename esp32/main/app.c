@@ -1839,6 +1839,16 @@ static cJSON *on_ws_command(
         if (!cJSON_IsString(text) || !text->valuestring || strlen(text->valuestring)>240)
             return command_error("invalid_params", "text must contain at most 240 UTF-8 bytes");
         pocket_set_status(text->valuestring);
+        pocket_note_command(command);
+        cJSON* result = cJSON_CreateObject();
+        cJSON_AddBoolToObject(result,"ok",true);
+        return result;
+    }
+    if (strcmp(command, "pocket.set_name") == 0) {
+        cJSON* name = cJSON_GetObjectItem(params, "name");
+        if (!cJSON_IsString(name) || !name->valuestring || !pocket_set_name(name->valuestring))
+            return command_error("invalid_params", "name must be plain text of at most 63 UTF-8 bytes");
+        pocket_note_command(command);
         cJSON* result = cJSON_CreateObject();
         cJSON_AddBoolToObject(result,"ok",true);
         return result;
@@ -1851,8 +1861,29 @@ static cJSON *on_ws_command(
             warmth->valuedouble<0 || warmth->valuedouble>100)
             return command_error("invalid_params","brightness and warmth must be 0-100");
         pocket_set_frontlight(brightness->valueint,warmth->valueint);
+        pocket_note_command(command);
         cJSON* result=cJSON_CreateObject();
         cJSON_AddBoolToObject(result,"ok",true);
+        return result;
+    }
+    if (strcmp(command, "pocket.set_watch_digest") == 0 || strcmp(command, "pocket.set_next_up") == 0) {
+        cJSON* payload = cJSON_GetObjectItem(params, "payload");
+        bool watches = strcmp(command, "pocket.set_watch_digest") == 0;
+        if (!cJSON_IsString(payload) || !payload->valuestring ||
+            !(watches ? pocket_set_watch_digest(payload->valuestring) : pocket_set_next_up(payload->valuestring)))
+            return command_error("invalid_params", "payload does not match the registered command schema; previous card kept");
+        cJSON* result = cJSON_CreateObject();
+        cJSON_AddBoolToObject(result,"ok",true);
+        return result;
+    }
+    if (strcmp(command, "pocket.get_status") == 0) {
+        const char* connection; int received; char last[32];
+        pocket_get_status(&connection, &received, last, sizeof(last));
+        cJSON* result = cJSON_CreateObject();
+        cJSON_AddBoolToObject(result,"ok",true);
+        cJSON_AddStringToObject(result,"connection",connection);
+        cJSON_AddNumberToObject(result,"commands_received",received);
+        cJSON_AddStringToObject(result,"last_command",last);
         return result;
     }
 #endif

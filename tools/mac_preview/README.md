@@ -42,5 +42,5 @@ The bundled pack covers October 2–November 2, 2026. It uses the general Monast
 1963 calendar, not verified Clear Creek local propers. Modern Hours text is not
 bundled. Missing dates or rites must remain visibly unavailable.
 
-This is a Mac application prototype. Hours is not integrated into the firmware.
-No Hours behavior on a physical reader has been verified.
+This is a Mac application prototype. The firmware has its own implementation of
+these screens; no Hours behavior on a physical reader has been verified.

@@ -1189,12 +1189,14 @@ static bool pocket_intro_request(esp_tls_t* tls, ClientSession& session,
     if(!root)return true;
     cJSON_AddStringToObject(root,"device_id",s_node_id);
     cJSON_AddStringToObject(root,"message",
-        "Initialize Muse Pocket as my companion display. Send your own "
-        "character image using display.draw_url, as a baseline JPEG in the 480x480 "
-        "character canvas. Keep the character visible and set the caption with "
-        "pocket.set_status to your current activity. Use short plain ASCII text. "
-        "Keep the caption current on meaningful activity changes. If already set "
-        "up, refresh the character and current status. Tell me if a command fails.");
+        "Initialize Muse Pocket as my companion display. Set pocket.set_name to "
+        "your own name. Send your own character image using display.draw_url, as "
+        "a baseline JPEG in the 480x480 character canvas. Set the caption with "
+        "pocket.set_status to what you are actually doing for me, or what you "
+        "last finished, in one short plain sentence: no timestamps and no filler "
+        "such as standing by. Update it when your activity really changes. If you "
+        "keep watches or know my next event, send them with "
+        "pocket.set_watch_digest and pocket.set_next_up. Tell me if a command fails.");
     char* json=cJSON_PrintUnformatted(root);cJSON_Delete(root);
     if(!json)return true;
     uint8_t uuid[16];esp_fill_random(uuid,sizeof(uuid));
@@ -1416,8 +1418,11 @@ static char *build_register_json(void) {
 
 #if CONFIG_HOMEHUB_LED_BACKEND_XTEINK_X4_PRO
     cJSON* status_required=cJSON_CreateObject();
-    cJSON_AddItemToObject(status_required,"text",string_param("Current activity or status, up to 240 UTF-8 bytes. Use plain ASCII for this pixel font."));
-    add_command(commands,"pocket.set_status","Update the caption below the character. The character remains visible. Send meaningful updates; the device batches screen refreshes.",status_required,nullptr);
+    cJSON_AddItemToObject(status_required,"text",string_param("What you are doing for the user right now, or what you last finished, in one short sentence. No timestamps and no filler such as standing by or refreshed. Up to 240 UTF-8 bytes, plain text, no emoji."));
+    add_command(commands,"pocket.set_status","Update the caption below your name. The character remains visible. Send it when your activity really changes; the device batches screen refreshes.",status_required,nullptr);
+    cJSON* name_required=cJSON_CreateObject();
+    cJSON_AddItemToObject(name_required,"name",string_param("Your own name as the user knows you, up to 63 UTF-8 bytes."));
+    add_command(commands,"pocket.set_name","Set the name shown above the caption. Saved across restart.",name_required,nullptr);
     cJSON* light_required=cJSON_CreateObject();
     for(const char* key : {"brightness", "warmth"}) {
         cJSON* p=cJSON_CreateObject();
@@ -1426,6 +1431,13 @@ static char *build_register_json(void) {
         cJSON_AddItemToObject(light_required,key,p);
     }
     add_command(commands,"pocket.set_frontlight","Set frontlight brightness and warmth (0-100), saved across restart.",light_required,nullptr);
+    cJSON* watch_required=cJSON_CreateObject();
+    cJSON_AddItemToObject(watch_required,"payload",string_param("Serialized JSON digest"));
+    add_command(commands,"pocket.set_watch_digest","Replace the watch list. Send JSON as the payload string: updated (ISO time with offset), items (max 10), each with label, state, note, checked (ISO time with offset). Empty items clears the list.",watch_required,nullptr);
+    cJSON* next_required=cJSON_CreateObject();
+    cJSON_AddItemToObject(next_required,"payload",string_param("Serialized JSON event"));
+    add_command(commands,"pocket.set_next_up","Replace the next event. Send JSON as the payload string: updated, title, when, ends (ISO times with offsets), detail. Empty title clears it. Countdown is computed on the device.",next_required,nullptr);
+    add_command(commands,"pocket.get_status","Verify the display: connection state, accepted command count, last command; no private display content.",nullptr,nullptr);
 #endif
     cJSON_AddItemToObject(params, "commands_v2", commands);
     cJSON_AddItemToObject(root, "params", params);
