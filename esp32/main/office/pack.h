@@ -14,6 +14,8 @@ class Pack {
 public:
     // The data must outlive the pack; nothing is copied.
     bool open(const uint8_t* data, size_t size);
+    // Dated offices use rite 0 or 1. Common prayers are date 0, rite 2, and
+    // their position in the list as the hour.
     bool find(uint32_t yyyymmdd, int rite, int hour, Office& out) const;
     bool text(const Office& office, uint32_t index, Text& out) const;
     uint32_t first_date() const { return first_; }

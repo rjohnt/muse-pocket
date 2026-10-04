@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "note": "Common prayers shown under Hours > Prayers. Each block has a kind (heading, prayer or note). In a prayer, put matching Latin and English on matching lines; an English-only prayer leaves latin out.",
+  "prayers": [
+    {
+      "title": "Angelus",
+      "blocks": [
+        {"kind": "prayer", "latin": "℣. Ángelus Dómini nuntiávit Maríæ.\n℟. Et concépit de Spíritu Sancto.", "english": "℣. The Angel of the Lord declared unto Mary.\n℟. And she conceived of the Holy Spirit."},
+        {"kind": "prayer", "latin": "Ave María, grátia plena,\nDóminus tecum;\nbenedícta tu in muliéribus,\net benedíctus fructus ventris tui, Iesus.\nSancta María, Mater Dei,\nora pro nobis peccatóribus,\nnunc et in hora mortis nostræ. Amen.", "english": "Hail Mary, full of grace,\nthe Lord is with thee;\nblessed art thou among women,\nand blessed is the fruit of thy womb, Jesus.\nHoly Mary, Mother of God,\npray for us sinners,\nnow and at the hour of our death. Amen."},
+        {"kind": "prayer", "latin": "℣. Ecce ancílla Dómini.\n℟. Fiat mihi secúndum verbum tuum.", "english": "℣. Behold the handmaid of the Lord.\n℟. Be it done unto me according to thy word."},
+        {"kind": "note", "english": "Hail Mary"},
+        {"kind": "prayer", "latin": "℣. Et Verbum caro factum est.\n℟. Et habitávit in nobis.", "english": "℣. And the Word was made flesh.\n℟. And dwelt among us."},
+        {"kind": "note", "english": "Hail Mary"},
+        {"kind": "prayer", "latin": "℣. Ora pro nobis, sancta Dei Génetrix.\n℟. Ut digni efficiámur promissiónibus Christi.", "english": "℣. Pray for us, O holy Mother of God.\n℟. That we may be made worthy of the promises of Christ."},
+        {"kind": "prayer", "latin": "Orémus.", "english": "Let us pray."},
+        {"kind": "prayer", "latin": "Grátiam tuam, quǽsumus, Dómine,\nméntibus nostris infúnde:\nut qui, Ángelo nuntiánte,\nChristi Fílii tui incarnatiónem cognóvimus,\nper passiónem eius et crucem\nad resurrectiónis glóriam perducámur.\nPer eúndem Christum Dóminum nostrum. Amen.", "english": "Pour forth, we beseech thee, O Lord,\nthy grace into our hearts:\nthat we, to whom, by the message of an Angel,\nthe incarnation of Christ thy Son was made known,\nmay by his passion and cross\nbe brought to the glory of his resurrection.\nThrough the same Christ our Lord. Amen."}
+      ]
+    },
+    {
+      "title": "Rosary Prayers",
+      "blocks": [
+        {"kind": "heading", "english": "Sign of the Cross"},
+        {"kind": "prayer", "latin": "In nómine Patris, et Fílii,\net Spíritus Sancti. Amen.", "english": "In the name of the Father, and of the Son,\nand of the Holy Spirit. Amen."},
+        {"kind": "heading", "english": "Apostles’ Creed"},
+        {"kind": "prayer", "latin": "Credo in Deum, Patrem omnipoténtem,\nCreatórem cæli et terræ.\nEt in Iesum Christum,\nFílium eius únicum, Dóminum nostrum:\nqui concéptus est de Spíritu Sancto,\nnatus ex María Vírgine,\npassus sub Póntio Piláto,\ncrucifíxus, mórtuus, et sepúltus:\ndescéndit ad ínferos:\ntértia die resurréxit a mórtuis:\nascéndit ad cælos:\nsedet ad déxteram Dei Patris omnipoténtis:\ninde ventúrus est iudicáre vivos et mórtuos.\nCredo in Spíritum Sanctum,\nsanctam Ecclésiam cathólicam,\nSanctórum communiónem,\nremissiónem peccatórum,\ncarnis resurrectiónem,\nvitam ætérnam. Amen.", "english": "I believe in God, the Father almighty,\nCreator of heaven and earth.\nAnd in Jesus Christ,\nhis only Son, our Lord:\nwho was conceived by the Holy Spirit,\nborn of the Virgin Mary,\nsuffered under Pontius Pilate,\nwas crucified, died, and was buried:\nhe descended into hell:\nthe third day he rose again from the dead:\nhe ascended into heaven:\nand sits at the right hand of God the Father almighty:\nfrom thence he shall come to judge the living and the dead.\nI believe in the Holy Spirit,\nthe holy catholic Church,\nthe communion of Saints,\nthe forgiveness of sins,\nthe resurrection of the body,\nand life everlasting. Amen."},
+        {"kind": "heading", "english": "Our Father"},
+        {"kind": "prayer", "latin": "Pater noster, qui es in cælis,\nsanctificétur nomen tuum:\nadvéniat regnum tuum:\nfiat volúntas tua,\nsicut in cælo et in terra.\nPanem nostrum cotidiánum da nobis hódie:\net dimítte nobis débita nostra,\nsicut et nos dimíttimus debitóribus nostris:\net ne nos indúcas in tentatiónem:\nsed líbera nos a malo. Amen.", "english": "Our Father, who art in heaven,\nhallowed be thy name:\nthy kingdom come:\nthy will be done\non earth as it is in heaven.\nGive us this day our daily bread:\nand forgive us our trespasses,\nas we forgive those who trespass against us:\nand lead us not into temptation:\nbut deliver us from evil. Amen."},
+        {"kind": "heading", "english": "Hail Mary"},
+        {"kind": "prayer", "latin": "Ave María, grátia plena,\nDóminus tecum;\nbenedícta tu in muliéribus,\net benedíctus fructus ventris tui, Iesus.\nSancta María, Mater Dei,\nora pro nobis peccatóribus,\nnunc et in hora mortis nostræ. Amen.", "english": "Hail Mary, full of grace,\nthe Lord is with thee;\nblessed art thou among women,\nand blessed is the fruit of thy womb, Jesus.\nHoly Mary, Mother of God,\npray for us sinners,\nnow and at the hour of our death. Amen."},
+        {"kind": "heading", "english": "Glory Be"},
+        {"kind": "prayer", "latin": "Glória Patri, et Fílio,\net Spirítui Sancto.\nSicut erat in princípio,\net nunc, et semper,\net in sǽcula sæculórum. Amen.", "english": "Glory be to the Father, and to the Son,\nand to the Holy Spirit.\nAs it was in the beginning,\nis now, and ever shall be,\nworld without end. Amen."},
+        {"kind": "heading", "english": "Fatima Prayer"},
+        {"kind": "prayer", "latin": "Dómine Iesu, dimítte nobis débita nostra,\nsalva nos ab igne inferióri,\nperduc in cælum omnes ánimas,\npræsértim eas, quæ misericórdiæ tuæ máxime índigent.", "english": "O my Jesus, forgive us our sins,\nsave us from the fires of hell,\nlead all souls to heaven,\nespecially those in most need of thy mercy."},
+        {"kind": "heading", "english": "Hail, Holy Queen"},
+        {"kind": "prayer", "latin": "Salve, Regína, Mater misericórdiæ,\nvita, dulcédo, et spes nostra, salve.\nAd te clamámus, éxsules fílii Hevæ.\nAd te suspirámus, geméntes et flentes\nin hac lacrimárum valle.\nEia ergo, advocáta nostra,\nillos tuos misericórdes óculos ad nos convérte.\nEt Iesum, benedíctum fructum ventris tui,\nnobis post hoc exsílium osténde.\nO clemens, O pia, O dulcis Virgo María.", "english": "Hail, holy Queen, Mother of mercy,\nour life, our sweetness, and our hope, hail.\nTo thee do we cry, poor banished children of Eve.\nTo thee do we send up our sighs, mourning and weeping\nin this valley of tears.\nTurn then, most gracious advocate,\nthine eyes of mercy toward us.\nAnd Jesus, the blessed fruit of thy womb,\nshow unto us after this our exile.\nO clement, O loving, O sweet Virgin Mary."},
+        {"kind": "prayer", "latin": "℣. Ora pro nobis, sancta Dei Génetrix.\n℟. Ut digni efficiámur promissiónibus Christi.", "english": "℣. Pray for us, O holy Mother of God.\n℟. That we may be made worthy of the promises of Christ."}
+      ]
+    },
+    {
+      "title": "Prayer of St Francis",
+      "blocks": [
+        {"kind": "prayer", "english": "Lord, make me an instrument of thy peace.\nWhere there is hatred, let me sow love;\nwhere there is injury, pardon;\nwhere there is doubt, faith;\nwhere there is despair, hope;\nwhere there is darkness, light;\nand where there is sadness, joy."},
+        {"kind": "prayer", "english": "O Divine Master,\ngrant that I may not so much seek\nto be consoled as to console;\nto be understood as to understand;\nto be loved as to love."},
+        {"kind": "prayer", "english": "For it is in giving that we receive;\nit is in pardoning that we are pardoned;\nand it is in dying\nthat we are born to eternal life. Amen."}
+      ]
+    },
+    {
+      "title": "Sacred Heart Prayer",
+      "blocks": [
+        {"kind": "prayer", "english": "O most holy Heart of Jesus,\nfountain of every blessing,\nI adore thee, I love thee,\nand with lively sorrow for my sins\nI offer thee this poor heart of mine."},
+        {"kind": "prayer", "english": "Make me humble, patient, pure\nand wholly obedient to thy will.\nGrant, good Jesus,\nthat I may live in thee and for thee."},
+        {"kind": "prayer", "english": "Protect me in the midst of danger.\nComfort me in my afflictions.\nGive me health of body,\nassistance in my temporal needs,\nthy blessing on all that I do,\nand the grace of a holy death. Amen."},
+        {"kind": "prayer", "latin": "Cor Iesu sacratíssimum,\nmiserére nobis.", "english": "Most Sacred Heart of Jesus,\nhave mercy on us."}
+      ]
+    }
+  ]
+}

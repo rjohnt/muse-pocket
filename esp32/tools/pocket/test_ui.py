@@ -17,7 +17,8 @@ class PocketScreens(unittest.TestCase):
         with tempfile.TemporaryDirectory() as work:
             pack, binary = Path(work) / "office.bin", Path(work) / "ui_harness"
             subprocess.run([sys.executable, str(ROOT / "tools/office/build_firmware_pack.py"),
-                            str(ROOT / "tools/office/office-pack.json"), str(pack)], check=True)
+                            str(ROOT / "tools/office/office-pack.json"), str(pack),
+                            "--prayers", str(ROOT / "tools/office/prayers.json")], check=True)
             sources = [Path(__file__).with_name("ui_harness.cpp")] + [OFFICE / name for name in
                        ("ui.cpp", "pack.cpp", "raster.cpp", "font_data.cpp")]
             subprocess.run(["c++", "-std=c++20", "-O1", "-Wall", "-Wextra", "-Werror", "-o", str(binary),

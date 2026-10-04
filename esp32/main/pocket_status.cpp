@@ -54,7 +54,7 @@ bool recovery=false, force_full=true, initialized=false;
 // Reading state for the pages reached from the Muse screen.
 View page_view=View::Muse;
 bool following=true, h12=false, interactive=false, sntp_started=false;
-int rite=0, zone=0, text_size=1, reading_hour=0, page=0, commands_received=0;
+int rite=0, zone=0, text_size=1, prayer=-1, prayer_selected=0, reading_hour=0, page=0, commands_received=0;
 uint32_t page_key=0;
 char last_command[32]="";
 char custom_name[64]="";
@@ -191,7 +191,9 @@ pocket_ui::State snapshot() {
     s.avatar=custom_avatar?avatar:nullptr;
     s.now=time(nullptr); s.clock_valid=clock_valid(s.now); s.h12=h12; s.rite=rite; s.text_size=text_size; s.zone=zone_names[zone];
     s.following=following; s.reading_hour=reading_hour; s.cards=&cards;
-    snprintf(setting_rows[ROW_LIGHT],48,"Brightness: %d%%",brightness);
+    s.prayer=prayer; s.prayer_selected=prayer_selected;
+    if(brightness) snprintf(setting_rows[ROW_LIGHT],48,"Brightness: %d%%",brightness);
+    else snprintf(setting_rows[ROW_LIGHT],48,"Brightness: off");
     snprintf(setting_rows[ROW_WARMTH],48,"Warmth: %d%%",warmth);
     snprintf(setting_rows[ROW_CADENCE],48,"Refresh: every %ds",cadence);
     snprintf(setting_rows[ROW_FLIP],48,"Orientation: %s",flipped?"flipped":"normal");
@@ -284,7 +286,13 @@ void sleep_now() {
 void activate() {
     xSemaphoreTake(lock_,portMAX_DELAY);
     switch(selected) {
-    case ROW_LIGHT: brightness=(brightness+25)%125; light(brightness,warmth);save_settings();break;
+    case ROW_LIGHT: {
+        // Finer steps at the dim end, where the eye notices them most.
+        static const int levels[]={0,5,10,25,50,75,100};
+        int next=0;
+        for(int level:levels) if(level>brightness) {next=level;break;}
+        brightness=next;light(brightness,warmth);save_settings();break;
+    }
     case ROW_WARMTH: warmth=(warmth+25)%125; light(brightness,warmth);save_settings();break;
     case ROW_CADENCE: for(int i=0;i<4;++i) if(cadence==cadences[i]) {cadence=cadences[(i+1)%4];break;} save_settings();break;
     case ROW_FLIP: flipped=!flipped;force_full=true;save_settings();break;
@@ -308,7 +316,9 @@ void activate() {
 }
 // Call with lock_ held.
 void show(View view) {
-    if(view==View::Hours&&page_view!=View::Hours) following=true;
+    // Coming back from the prayers keeps the hour that was being read.
+    if(view==View::Hours&&page_view!=View::Hours&&page_view!=View::Prayers) following=true;
+    if(view==View::Prayers) {prayer=-1;prayer_selected=0;}
     if(page_view!=view) {page=0;force_full=true;}
     page_view=view;
 }
@@ -337,7 +347,9 @@ bool apply(pocket_ui::Hit hit) {
     case Action::CloseHours: show(View::Muse);break;
     case Action::PrevHour: pick_hour(pocket_ui::hours(s),-1);break;
     case Action::NextHour: pick_hour(pocket_ui::hours(s),1);break;
-    case Action::SelectHour: following=false;reading_hour=hit.value;page=0;break;
+    case Action::SelectHour: show(View::Hours);following=false;reading_hour=hit.value;page=0;break;
+    case Action::Prayers: if(page_view==View::Prayers){prayer=-1;page=0;}else show(View::Prayers);break;
+    case Action::OpenPrayer: prayer=prayer_selected=std::clamp(hit.value,0,pocket_ui::prayer_count()-1);page=0;break;
     case Action::Now: following=true;page=0;break;
     case Action::PrevPage: turn(s,-1);break;
     case Action::NextPage: turn(s,1);break;
@@ -347,7 +359,7 @@ bool apply(pocket_ui::Hit hit) {
     xSemaphoreGive(lock_);
     return row;
 }
-// RIGHT steps through everything without touch: Muse, Watches, Next up, then
+// RIGHT steps through everything without touch: Muse, Watchlist, Next up, then
 // each page of the current hour, and back to Muse.
 void advance() {
     xSemaphoreTake(lock_,portMAX_DELAY);
@@ -360,7 +372,34 @@ void advance() {
         case View::Muse: show(View::Watches);break;
         case View::Watches: if(more) turn(s,1); else show(View::NextUp);break;
         case View::NextUp: show(View::Hours);break;
-        default: if(more) turn(s,1); else show(View::Muse);break;
+        case View::Hours: if(more) turn(s,1); else show(View::Prayers);break;
+        case View::Prayers:
+            // In the list RIGHT moves the marker; in a prayer it turns the page.
+            if(prayer<0) {if(prayer_selected+1<pocket_ui::prayer_count()) ++prayer_selected; else show(View::Muse);}
+            else if(more) turn(s,1); else {prayer=-1;page=0;}
+            break;
+        default: show(View::Muse);break;
+        }
+    }
+    interactive=true;
+    xSemaphoreGive(lock_);notify();
+}
+// The mirror of advance(): the other button steps back the same way.
+void retreat() {
+    xSemaphoreTake(lock_,portMAX_DELAY);
+    if(sleeping) {xSemaphoreGive(lock_);return;}
+    if(menu) selected=(selected+ROWS-1)%ROWS;
+    else {
+        pocket_ui::State s=snapshot();
+        switch(page_view) {
+        case View::Watches: if(page>0) turn(s,-1); else show(View::Muse);break;
+        case View::NextUp: show(View::Watches);break;
+        case View::Hours: if(page>0) turn(s,-1); else show(View::NextUp);break;
+        case View::Prayers:
+            if(prayer<0) {if(prayer_selected>0) --prayer_selected; else show(View::Hours);}
+            else if(page>0) turn(s,-1); else {prayer=-1;page=0;}
+            break;
+        default: break;
         }
     }
     interactive=true;
@@ -407,9 +446,12 @@ void input_task(void*) {
             if(restore) pocket_return_to_crosspoint(); else sleep_now();
         }
         if(!power&&was_power&&!fired&&now-power_down>=50000) {
-            xSemaphoreTake(lock_,portMAX_DELAY);bool in_menu=menu,away=page_view!=View::Muse;xSemaphoreGive(lock_);
+            xSemaphoreTake(lock_,portMAX_DELAY);bool in_menu=menu,away=page_view!=View::Muse,praying=page_view==View::Prayers;
+            int listed=prayer,marked=prayer_selected;xSemaphoreGive(lock_);
             if(in_menu) activate();
-            // POWER is the way home from Watches, Next up and Hours.
+            // Among the prayers POWER opens the marked one, or returns to the list.
+            else if(praying) {apply(listed<0?pocket_ui::Hit{Action::OpenPrayer,marked}:pocket_ui::Hit{Action::Prayers,0});notify();}
+            // POWER is the way home from Watchlist, Next up and Hours.
             else if(away) {apply({Action::CloseHours,0});notify();}
             else {xSemaphoreTake(lock_,portMAX_DELAY);force_full=true;xSemaphoreGive(lock_);notify();}
         }
@@ -615,6 +657,9 @@ extern "C" bool pocket_set_next_up(const char* payload) {
     memcpy(cards.title,next->title,sizeof(cards.title));memcpy(cards.detail,next->detail,sizeof(cards.detail));
     accepted("pocket.set_next_up");
     xSemaphoreGive(lock_);notify();return true;
+}
+extern "C" void pocket_previous(void) {
+    if(renderer) retreat();
 }
 extern "C" void pocket_note_command(const char* command) {
     if(!renderer||!command)return;

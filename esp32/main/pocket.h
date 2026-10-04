@@ -23,6 +23,9 @@ void pocket_set_frontlight(int brightness, int warmth);
 bool pocket_set_watch_digest(const char* payload);
 bool pocket_set_next_up(const char* payload);
 void pocket_note_command(const char* command);
+// The setup button, once setup is complete, steps back: previous page, list
+// item, screen or settings row.
+void pocket_previous(void);
 void pocket_get_status(const char** connection, int* received, char* last, size_t last_size);
 const char* pocket_sdk_token(void);
 #ifdef __cplusplus

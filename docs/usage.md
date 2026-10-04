@@ -8,20 +8,26 @@ view reads a dated prayer pack built into the firmware and needs no Muse.
 ## Screens
 
 - **Muse:** the active prayer hour and clock, the character, its name and caption.
-- **Watches** and **Next up:** the cards your Muse last sent, with the time they
+- **Watchlist** and **Next up:** the cards your Muse last sent, with the time they
   were updated. A card older than a day is marked stale; an event disappears an
   hour after it ends.
 - **Hours:** the office for the active hour, Latin above English, one page at a
   time. Select another hour from the strip; **Now** returns to the clock.
 
+- **Prayers:** common prayers (Angelus, the Rosary prayers, the Prayer of St
+  Francis, a Sacred Heart prayer), opened from the beads at the end of the hour
+  strip and read in the same way. In the list, **Right** moves the marker and
+  **Power** opens the marked prayer; **Power** again returns to the list.
+
 Tap the hour line to open Hours, a tab to open a card, the gear for Settings and
 the cross to return to Muse. In Hours, tap the right of the text for the next page
 and the left third for the previous one. Turning a page holds the hour you are
-reading until you choose Now.
+reading until you choose Now. The hour's title, with Now, is on its first page only.
 
-Without touch, a short press of **Right** moves forward: Muse, Watches, Next up,
-then each page of the current hour. A short press of **Power** returns to Muse
-from any of them.
+Without touch, a short press of **Right** moves forward: Muse, Watchlist, Next up,
+then each page of the current hour, then the prayer list. A short press of
+**Left** steps back the same way: the previous page, list item or screen. A
+short press of **Power** returns to Muse from the cards and Hours.
 
 The clock is set from the network once Muse is connected, and keeps running
 through sleep. Until then the hour line shows `--:--` and Hours asks for Wi-Fi.
@@ -30,12 +36,12 @@ calendar; other dates and the modern tradition are shown as not loaded.
 
 ## Settings and controls
 
-Hold **Right** for a second to open Settings, or tap the gear. Press Right to
-move through the rows and **Power** to change the selected setting.
+Hold **Right** for a second to open Settings, or tap the gear. Press Right or
+Left to move through the rows and **Power** to change the selected setting.
 
 | Setting | Choices |
 | --- | --- |
-| Brightness | Frontlight percentage |
+| Brightness | Off, 5, 10, 25, 50, 75 or 100% |
 | Warmth | Cool/warm balance |
 | Refresh | 2, 5, 15 or 30 seconds |
 | Orientation | Normal or flipped |
@@ -43,7 +49,7 @@ move through the rows and **Power** to change the selected setting.
 | Tradition | Benedictine; Modern has no bundled texts |
 | Clock | 24-hour or 12-hour |
 | Timezone | Central, UTC, Eastern, Mountain, Pacific, Rome or London |
-| Sleep | Preserve the ink and stop live updates |
+| Sleep | Keep the character, name and last caption on screen and stop live updates |
 | Return to CrossPoint | Hold Power for 3 seconds to return |
 | Back to Muse | Return to the companion screen |
 

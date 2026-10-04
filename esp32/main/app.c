@@ -2171,7 +2171,12 @@ static void on_button_short_press(void) {
         return;
     }
 
+#if CONFIG_HOMEHUB_LED_BACKEND_XTEINK_X4_PRO
+    // With setup done, this button pages back through the Pocket screens.
+    pocket_previous();
+#else
     ESP_LOGI(TAG, "button short-press ignored; setup already complete");
+#endif
 }
 
 static void on_button_double_press(void) {
