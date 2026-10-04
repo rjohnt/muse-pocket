@@ -384,6 +384,27 @@ void advance() {
     interactive=true;
     xSemaphoreGive(lock_);notify();
 }
+// The mirror of advance(): the other button steps back the same way.
+void retreat() {
+    xSemaphoreTake(lock_,portMAX_DELAY);
+    if(sleeping) {xSemaphoreGive(lock_);return;}
+    if(menu) selected=(selected+ROWS-1)%ROWS;
+    else {
+        pocket_ui::State s=snapshot();
+        switch(page_view) {
+        case View::Watches: if(page>0) turn(s,-1); else show(View::Muse);break;
+        case View::NextUp: show(View::Watches);break;
+        case View::Hours: if(page>0) turn(s,-1); else show(View::NextUp);break;
+        case View::Prayers:
+            if(prayer<0) {if(prayer_selected>0) --prayer_selected; else show(View::Hours);}
+            else if(page>0) turn(s,-1); else {prayer=-1;page=0;}
+            break;
+        default: break;
+        }
+    }
+    interactive=true;
+    xSemaphoreGive(lock_);notify();
+}
 void toggle_menu() {
     xSemaphoreTake(lock_,portMAX_DELAY);
     if(!sleeping) {menu=!menu;selected=0;force_full=true;}
@@ -636,6 +657,9 @@ extern "C" bool pocket_set_next_up(const char* payload) {
     memcpy(cards.title,next->title,sizeof(cards.title));memcpy(cards.detail,next->detail,sizeof(cards.detail));
     accepted("pocket.set_next_up");
     xSemaphoreGive(lock_);notify();return true;
+}
+extern "C" void pocket_previous(void) {
+    if(renderer) retreat();
 }
 extern "C" void pocket_note_command(const char* command) {
     if(!renderer||!command)return;

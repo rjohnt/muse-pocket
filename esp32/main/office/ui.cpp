@@ -413,7 +413,7 @@ void prayers(Raster& r, const State& s, const Hours& h) {
             r.dots(LEFT, y + LIST_PITCH - 6, WIDE);
         }
         if (!count) r.text("No prayers are bundled in this build.", LEFT, LIST_TOP);
-        r.centred("RIGHT: next    POWER: open", FOOTER_Y, Face::Small);
+        r.centred("RIGHT: next    LEFT: previous    POWER: open", FOOTER_Y, Face::Small);
         return;
     }
     if (!pack.find(0, PRAYERS_RITE, s.prayer, found)) return;

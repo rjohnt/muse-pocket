@@ -25,8 +25,9 @@ and the left third for the previous one. Turning a page holds the hour you are
 reading until you choose Now. The hour's title, with Now, is on its first page only.
 
 Without touch, a short press of **Right** moves forward: Muse, Watchlist, Next up,
-then each page of the current hour. A short press of **Power** returns to Muse
-from any of them.
+then each page of the current hour, then the prayer list. A short press of
+**Left** steps back the same way: the previous page, list item or screen. A
+short press of **Power** returns to Muse from the cards and Hours.
 
 The clock is set from the network once Muse is connected, and keeps running
 through sleep. Until then the hour line shows `--:--` and Hours asks for Wi-Fi.
@@ -35,8 +36,8 @@ calendar; other dates and the modern tradition are shown as not loaded.
 
 ## Settings and controls
 
-Hold **Right** for a second to open Settings, or tap the gear. Press Right to
-move through the rows and **Power** to change the selected setting.
+Hold **Right** for a second to open Settings, or tap the gear. Press Right or
+Left to move through the rows and **Power** to change the selected setting.
 
 | Setting | Choices |
 | --- | --- |
