@@ -11,6 +11,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from PIL import Image
+from tools.mac_preview.tabula import PANEL
 
 
 def spec(description, fields):
@@ -23,6 +24,7 @@ COMMANDS = {
     'display.draw_url': spec('Download a public HTTPS character image and render it on the Mac Pocket preview.', [('url', 'string', 'HTTPS image URL')]),
     'pocket.set_watch_digest': spec('Replace the watch list. Send JSON as the payload string: updated (ISO time with offset), items (max 10), each with label, state, note, checked (ISO time with offset). Empty items clears the list.', [('payload', 'string', 'Serialized JSON digest')]),
     'pocket.set_next_up': spec('Replace the next event. Send JSON as the payload string: updated, title, when, ends (ISO times with offsets), detail. Empty title clears it. Countdown is computed locally.', [('payload', 'string', 'Serialized JSON event')]),
+    'pocket.set_tabula_status': spec('Replace the one-line agent status on the Tabula screen. Send JSON as the payload string: updated, status (max 6), each with name, state, optional note, checked. Times are Unix seconds or ISO with an offset; checked 0 means never reported. Personal sources only.', [('payload', 'string', 'Serialized JSON status')]),
     'pocket.get_status': spec('Verify the Mac display gadget: connection state, received command count, last command; no private display content.', []),
 }
 
@@ -109,6 +111,7 @@ class DisplayState:
             event['seconds_until'] = int((timestamp(event['when']) - now).total_seconds())
             if (now - timestamp(event['ends'])).total_seconds() >= 3600:
                 result['next_up'] = None
+        result['tabula_key'] = PANEL.key()
         return result
 
 
@@ -130,6 +133,8 @@ class DisplayExecutor:
                 with self.state.lock:
                     self.state.image = image
                     self.state.data['image_revision'] += 1
+            elif command == 'pocket.set_tabula_status':
+                PANEL.push(text(params.get('payload'), 4096))
             else:
                 raw = text(params.get('payload'), 16384)
                 payload = json.loads(raw)

@@ -35,6 +35,18 @@ Never use private content in public screenshots.
 .venv-preview/bin/python -m pytest tools/mac_preview/test_preview.py
 ```
 
+## Tabula
+
+Open Settings (the gear) and choose **Mode: Tabula**, or load the preview with
+`#tabula` on the address. The preview shows the 480×800 panel exactly as
+[the composer](../tabula/README.md) draws it and fetches it again when the Hour,
+the day or the status changes, or a source goes stale.
+
+The status line is the last valid `pocket.set_tabula_status` payload, or else a
+local file: `~/.config/muse-pocket/tabula-status.json`, or the path in
+`MUSE_TABULA_STATUS`. The schema is in the composer's guide. Use it for
+personal sources only.
+
 ## Current limits
 
 The Hours view reads a local [dated prayer pack](../office/README.md) without Muse.

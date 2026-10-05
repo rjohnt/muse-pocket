@@ -9,6 +9,7 @@ from muse_mac.host import Application, main
 from tools.mac_preview.pocket_commands import COMMANDS, DisplayExecutor, DisplayState
 from tools.mac_preview.office import OfficePack
 from tools.mac_preview.requests import request_cards
+from tools.mac_preview.tabula import PANEL
 
 
 def configure(parser):
@@ -20,6 +21,6 @@ async def registered(session,state,args):
 def application(state_factory=DisplayState):
     return Application(caption_command='pocket.set_status',state_factory=state_factory,executor_factory=DisplayExecutor,
                        command_specs=COMMANDS,preview_path=Path(__file__).with_name('preview.html'),
-                       routes={'/office':OfficePack().route},configure_parser=configure,on_registered=registered)
+                       routes={'/office':OfficePack().route,'/tabula':PANEL.route},configure_parser=configure,on_registered=registered)
 
 if __name__=='__main__':raise SystemExit(main(application()))

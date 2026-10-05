@@ -11,4 +11,4 @@ jobs:
       - run: uv venv --python 3.12
       - name: Install pinned Mac adapter and test dependencies
         run: uv pip install 'muse-gadget-macos[test] @ git+https://github.com/rjohnt/muse-gadget-macos.git@098532c00fe530933a92fe7266b9c83d420aa8aa'
-      - run: .venv/bin/python -m pytest tools/mac_preview -q
+      - run: .venv/bin/python -m pytest tools/mac_preview tools/tabula -q
