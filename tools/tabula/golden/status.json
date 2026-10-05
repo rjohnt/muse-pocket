@@ -1,0 +1,4 @@
+{"updated": "2026-10-05T09:20:00-05:00", "status": [
+ {"name": "inbox", "state": "clear", "checked": "2026-10-05T09:18:00-05:00"},
+ {"name": "errands", "state": "running", "note": "2 left", "checked": "2026-10-05T09:10:00-05:00"},
+ {"name": "backup", "state": "ok", "checked": "2026-10-03T22:00:00-05:00"}]}
