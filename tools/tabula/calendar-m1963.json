@@ -1,0 +1,581 @@
+{
+ "source": "Divinum Officium, web/www/Tabulae/Kalendaria: 1570.txt, M1617.txt, M1930.txt, M1963.txt",
+ "revision": "b6e94c5825ba656b223e78bd2c49cf973f2eea1a",
+ "licence": "MIT; see tools/office/DIVINUM-LICENSE",
+ "note": "Fixed feasts only. Sundays, ferias and movable feasts are not in this table.",
+ "days": {
+  "01-00": [
+   "Sanctissimi Nominis Iesu"
+  ],
+  "01-01": [
+   "In Circumcisione Domini"
+  ],
+  "01-04": [
+   "S. Titi Episc et Confessoris"
+  ],
+  "01-06": [
+   "Epiphaniae Domini"
+  ],
+  "01-07": [
+   "Secunda die infra Octavam Epiphaniae"
+  ],
+  "01-08": [
+   "Tertia die infra Octavam Epiphaniae"
+  ],
+  "01-09": [
+   "Quarta die infra Octavam Epiphaniae"
+  ],
+  "01-10": [
+   "Quinta die infra Octavam Epiphaniae",
+   "S. Pauli primi Eremitae et Confessoris"
+  ],
+  "01-11": [
+   "Die Undecima Januarii"
+  ],
+  "01-12": [
+   "Die Duodecima Januarii"
+  ],
+  "01-13": [
+   "Die Octava Epiphaniae"
+  ],
+  "01-14": [
+   "S. Hilarii Episcopi Confessoris Ecclesiae Doctoris",
+   "S. Felicis Presbyteri et Mart"
+  ],
+  "01-16": [
+   "S. Marcelli Papae et Martyris"
+  ],
+  "01-17": [
+   "S. S. Antonii Abbatis"
+  ],
+  "01-19": [
+   "S. Marii et Soc. Mart."
+  ],
+  "01-20": [
+   "Ss. Fabiani et Sebastiani Martyrum"
+  ],
+  "01-21": [
+   "S. Agnetis Virginis et Martyris"
+  ],
+  "01-22": [
+   "S. Vincentii Martyris"
+  ],
+  "01-23": [
+   "S. Emerentianae Virginis et Martyris"
+  ],
+  "01-24": [
+   "S. Timothei Episcopi et Martyris"
+  ],
+  "01-25": [
+   "In Conversione S. Pauli Apostoli"
+  ],
+  "01-26": [
+   "S. Polycarpi Episcopi et Martyris"
+  ],
+  "01-27": [
+   "S. Joannis Chrysostomi Episcopi Confessoris Ecclesiae Doctoris"
+  ],
+  "01-28": [
+   "S. Cyrilli Episc Alexandrini Confessoris Ecclesiae Doctoris"
+  ],
+  "01-29": [
+   "S. Francisci Salesii Episcopi Confessoris Ecclesiae Doctoris"
+  ],
+  "01-31": [
+   "S.Joannis Bosco Confessoris"
+  ],
+  "02-01": [
+   "S. Ignatii Episcopi et Martyris"
+  ],
+  "02-02": [
+   "In Purificatione Beatae Mariae Virginis"
+  ],
+  "02-03": [
+   "S. S. Blasii Episcopi et Martyris"
+  ],
+  "02-05": [
+   "S. Agathae Virginis et Martyris"
+  ],
+  "02-07": [
+   "S. Romualdi Abbatis"
+  ],
+  "02-10": [
+   "S. Scholasticae Virginis"
+  ],
+  "02-14": [
+   "S. Valentini"
+  ],
+  "02-22": [
+   "In Cathedra S. Petri Ap"
+  ],
+  "02-23": [
+   "S. Petri Damiani"
+  ],
+  "02-24": [
+   "S. Matthiae Apostoli"
+  ],
+  "03-06": [
+   "Ss. Perpetuae et Felicitatis Martyrum"
+  ],
+  "03-07": [
+   "S. Thomae de Aquino Confessoris Ecclesiae Doctoris"
+  ],
+  "03-09": [
+   "S. Franciscae Romanae Viduae"
+  ],
+  "03-10": [
+   "Ss. Quadraginta Martyrum"
+  ],
+  "03-12": [
+   "S. Gregorii Papae Confessoris et Eccl Doct"
+  ],
+  "03-18": [
+   "S. Cyrilli Episc Hierosolymitani Eccl Doct"
+  ],
+  "03-19": [
+   "S. Joseph"
+  ],
+  "03-21": [
+   "S. Benedicti Abbatis"
+  ],
+  "03-25": [
+   "In Annuntiatione Beate Mariæ Virginis"
+  ],
+  "03-27": [
+   "S. Joannis Damascene Confessor et Ecclesiae Doctoris"
+  ],
+  "04-04": [
+   "S. Isidori Episc Confessoris et Ecclesiae Doctoris"
+  ],
+  "04-11": [
+   "S. Leonis I Papae Confessoris"
+  ],
+  "04-13": [
+   "S. Justini Martyris"
+  ],
+  "04-14": [
+   "Ss. Tiburtii, Valeriani et Maximi, Martyrum"
+  ],
+  "04-21": [
+   "S. Anselmi Episcopi Confessoris et Ecclesiae Doctoris"
+  ],
+  "04-23": [
+   "S. Georgii Martyris"
+  ],
+  "04-25": [
+   "S. Marci Evangelistae"
+  ],
+  "04-26": [
+   "S. Cleti Papae et Martyris"
+  ],
+  "04-27": [
+   "S. Petri Canisii Confessoris et Ecclesiae Doctoris"
+  ],
+  "04-29": [
+   "Ss Odonis, Maioli, Odilonis et Hugonis Abb."
+  ],
+  "04-30": [
+   "S. Catharinae Senensis Virginis"
+  ],
+  "05-01": [
+   "St Joseph the Worker Confessoris"
+  ],
+  "05-02": [
+   "S. Athanasii Confessoris Ecclesiae Doctoris"
+  ],
+  "05-03": [
+   "Ss. Alexandri et sociorum Martyrum"
+  ],
+  "05-04": [
+   "S. Monica Vidua"
+  ],
+  "05-05": [
+   "S. Pii V Papae Confessoris"
+  ],
+  "05-09": [
+   "S. Gregorii Nazianzi Episcopi Confessoris Ecclasiae Doctorum"
+  ],
+  "05-10": [
+   "Ss. Gordiani et Epimachi Martyri"
+  ],
+  "05-11": [
+   "Ss. Philippi et Jacobi Apostolorum"
+  ],
+  "05-12": [
+   "Ss. Nerei, Achillei et Domitillae Virgini atque Pancratii Martyrum"
+  ],
+  "05-13": [
+   "S. Roberti Ballarmino Episcopi Confessoris et Ecclesiae Doctoris"
+  ],
+  "05-14": [
+   "S. Pachomius Abbot"
+  ],
+  "05-19": [
+   "S. Petri Celestini Papae Confessoris"
+  ],
+  "05-25": [
+   "S. Gregory VII Papae Confessoris"
+  ],
+  "05-26": [
+   "S. Augustini Episcopi Confessoris"
+  ],
+  "05-27": [
+   "S. Bede Venerabilis Pries Confessor"
+  ],
+  "06-02": [
+   "Ss. Marcellini, atque Petri Martyrum"
+  ],
+  "06-05": [
+   "S. Bonifacii Episc et Mart"
+  ],
+  "06-06": [
+   "S. Norberti Episc et Confessoris"
+  ],
+  "06-09": [
+   "Ss. Primi et Feliciani Martyrum"
+  ],
+  "06-11": [
+   "S. Barnabae Apostoli"
+  ],
+  "06-13": [
+   "S. Antonii de Padua Confessoris (1946: & Ecclesiae Doctoris)"
+  ],
+  "06-14": [
+   "S. Basilii Magni Confessoris et Ecclesiae Doctoris"
+  ],
+  "06-15": [
+   "S. Viti Martyris"
+  ],
+  "06-18": [
+   "S. Ephraem Syri Confessorem et Ecclesiae Doctorem",
+   "Ss. Marci et Marcellini Martyrum"
+  ],
+  "06-19": [
+   "Ss. Gervasii et Protasii Martyres"
+  ],
+  "06-21": [
+   "S. Alosii Gonzagae Confessoris"
+  ],
+  "06-23": [
+   "Vigilia S. Joannis Baptistae"
+  ],
+  "06-24": [
+   "In Nativitate S. Joannis Baptistae"
+  ],
+  "06-26": [
+   "Ss. Joannis et Pauli Martyrum"
+  ],
+  "06-28": [
+   "Vigilia Ss. Petri et Pauli Apostolorum"
+  ],
+  "06-29": [
+   "Ss. Apostolorum Petri et Pauli",
+   "Nihil de Octava S. Joannis"
+  ],
+  "06-30": [
+   "In Commemoratione Sancti Pauli Apostoli"
+  ],
+  "07-02": [
+   "In Visitatione B Mariae Virginis"
+  ],
+  "07-03": [
+   "Ss. Processi et Martiniani Martyrum"
+  ],
+  "07-11": [
+   "Solemnity of Benedict"
+  ],
+  "07-12": [
+   "S. Joannis Gualberti Abbatis"
+  ],
+  "07-14": [
+   "S. Bonaventurae Episcopi Confessoris et Ecclesiae Doctoris"
+  ],
+  "07-17": [
+   "S. Leo IV"
+  ],
+  "07-19": [
+   "S. Vincentii a Paulo Conf"
+  ],
+  "07-20": [
+   "S. Hieronymi Aemiliani, Joseph Calasanctii et Joannis Bapitstae de la Salle Confessores"
+  ],
+  "07-22": [
+   "S. Mariae Magdalenae Poenitentis"
+  ],
+  "07-23": [
+   "S. Apollinaris Episcopi et Mart"
+  ],
+  "07-25": [
+   "S. Jacobi Apostoli"
+  ],
+  "07-26": [
+   "S. Joachim et S. Annae Matris BMV"
+  ],
+  "07-29": [
+   "Ss. Felicis, Simplicii, Faustini et Beatricis Mart"
+  ],
+  "07-30": [
+   "S. Abdon et Senen Martyrum"
+  ],
+  "07-31": [
+   "S. Ignatii Confessoris"
+  ],
+  "08-01": [
+   "Ss. Martyrum Machabaeorum"
+  ],
+  "08-02": [
+   "S. Alphonsi Mariae de Ligorio Episc Conf et Eccles Doct"
+  ],
+  "08-04": [
+   "S. Dominici Confessoris"
+  ],
+  "08-05": [
+   "S. Mariae ad Nives"
+  ],
+  "08-06": [
+   "The Transfiguratione Domini Nostri Jesu Christi"
+  ],
+  "08-07": [
+   "Ss. Xysti",
+   "1"
+  ],
+  "08-08": [
+   "Ss. Cyriacii et socii maryres"
+  ],
+  "08-09": [
+   "Vigilia S. Laurentii Martyris"
+  ],
+  "08-10": [
+   "S. Laurentii Martyris"
+  ],
+  "08-11": [
+   "S. Tiburtii Martyris"
+  ],
+  "08-12": [
+   "S. Clarae Virginis"
+  ],
+  "08-13": [
+   "Ss. Pontianus et Hippoliti Martyrum"
+  ],
+  "08-14": [
+   "Vigilia Assumptionis BMV"
+  ],
+  "08-15": [
+   "Assumptione Beatae Mariae Virginis"
+  ],
+  "08-18": [
+   "S. Agapiti Martyris"
+  ],
+  "08-20": [
+   "S. Bernardi Abbatis et Ecclesiae Doctoris"
+  ],
+  "08-21": [
+   "Bl. Bernard Prolomey"
+  ],
+  "08-22": [
+   "Ss. Timothei"
+  ],
+  "08-24": [
+   "S. Bartholomaei Apostoli"
+  ],
+  "08-28": [
+   "S. Augustini Episcopi et Confessoris et Ecclesiae Doctoris",
+   "S. Hermetis Mart"
+  ],
+  "08-29": [
+   "Decollatione S. Joannis Baptistae"
+  ],
+  "08-30": [
+   "Ss. Felicis et Soc. Mart."
+  ],
+  "09-03": [
+   "S. Pius X Papae Confessoris"
+  ],
+  "09-08": [
+   "Nativitate Beatae Mariae Virginis"
+  ],
+  "09-09": [
+   "S. Gorgonii mart"
+  ],
+  "09-11": [
+   "Ss. Proti et Hyacinthi Martyrum"
+  ],
+  "09-14": [
+   "In Exaltatione Sanctae crucis"
+  ],
+  "09-15": [
+   "Septem Dolorum Beatae Mariae Virginis"
+  ],
+  "09-16": [
+   "Ss. Cornelii et Cypriani Pontificium et Martyrum"
+  ],
+  "09-17": [
+   "St. Hildegard"
+  ],
+  "09-21": [
+   "S. Matthaei Apostoli et Evangelistae"
+  ],
+  "09-22": [
+   "Ss. Martyris Mauritii et Sociorum"
+  ],
+  "09-23": [
+   "S. Linae Papae et Martyris"
+  ],
+  "09-27": [
+   "S. Cosmae et Damiani Martyrum"
+  ],
+  "09-29": [
+   "In dedicatione S. Michaelis Archangelis"
+  ],
+  "09-30": [
+   "S. Hieronomy Presbitery Confessorie et Ecclesiae Doctoris"
+  ],
+  "10-02": [
+   "Ss. Angelorum Custodum"
+  ],
+  "10-03": [
+   "S. Theresiae a Jesu Infante Virginis"
+  ],
+  "10-04": [
+   "S. Francisci Confessoris"
+  ],
+  "10-05": [
+   "S. Mauri et Placidi et Sociorum Martyrum"
+  ],
+  "10-06": [
+   "S. Brunonis Confessoris"
+  ],
+  "10-07": [
+   "Festum Beatae Mariae Virginis a Rosario"
+  ],
+  "10-14": [
+   "S. Callisti Papae et Martyris"
+  ],
+  "10-15": [
+   "S. Teresiae Virginis"
+  ],
+  "10-18": [
+   "S. Lucae Evangelistae"
+  ],
+  "10-21": [
+   "S. Hilarionis Abbatis"
+  ],
+  "10-25": [
+   "Ss. Chrysanthi et Dariae Martyres"
+  ],
+  "10-28": [
+   "Ss. Simonis et Judae Apostolorum"
+  ],
+  "11-01": [
+   "Omnium Sanctorum"
+  ],
+  "11-02": [
+   "Commemoratio Omnium Fidelium Defunctorum"
+  ],
+  "11-04": [
+   "S. Caroli Episcopi et Confessoris"
+  ],
+  "11-08": [
+   "Ss. Quatuor Coronatorum Martyrum"
+  ],
+  "11-09": [
+   "In dedicatione Basilicae Ss. Salvatoris"
+  ],
+  "11-10": [
+   "S. Theodori"
+  ],
+  "11-11": [
+   "S. Martini Episcopi et Confessoris"
+  ],
+  "11-12": [
+   "S. Menna"
+  ],
+  "11-13": [
+   "All Saints of Benedictine order"
+  ],
+  "11-14": [
+   "All Souls of Benedictine orde"
+  ],
+  "11-15": [
+   "S. Albertus Magnus Ep Conf et Eccl Doctoris"
+  ],
+  "11-17": [
+   "S. Gertrudis Virginis"
+  ],
+  "11-18": [
+   "In Dedicatione Basilicarum Ss. Apostolorum Petri et Pauli"
+  ],
+  "11-21": [
+   "In Presentatione of Beatae Mariae Virginis",
+   "S. Columbani Abbatis"
+  ],
+  "11-22": [
+   "S. Ceciliae Virginis et Martyrum"
+  ],
+  "11-23": [
+   "S. Clement Papae et Martyris",
+   "S. Felicitatis Martyris"
+  ],
+  "11-24": [
+   "S. Joannis de Cruce Confessoris et Ecclesiae Doctoris",
+   "S. Chrysogoni Martyris"
+  ],
+  "11-25": [
+   "S. Catharinae Virginis et Martyris"
+  ],
+  "11-26": [
+   "S. Silvesteri Abbatis Confessoris"
+  ],
+  "11-29": [
+   "S. Saturnini Martyris"
+  ],
+  "11-30": [
+   "S. Andreae Apostoli"
+  ],
+  "12-02": [
+   "S. Petri Chrysologi Episcopi Confessoris Ecclesiae Doctoris"
+  ],
+  "12-03": [
+   "S. Francisci Xaverii Confessoris"
+  ],
+  "12-06": [
+   "S. Nicolai Episcopi et confessoris"
+  ],
+  "12-07": [
+   "S. Ambrosii Episcopi Confesoris et Ecclesiae Doctoris"
+  ],
+  "12-08": [
+   "Immaculata Conceptione Beatae Mariae Virginis"
+  ],
+  "12-11": [
+   "S. Damasi Papae et confessoris"
+  ],
+  "12-13": [
+   "S. Luciae Virginis et Martyris"
+  ],
+  "12-21": [
+   "S. Thomae Apostoli"
+  ],
+  "12-24": [
+   "Vigilia Nativitatis Domini"
+  ],
+  "12-25": [
+   "In Nativitate Domini"
+  ],
+  "12-26": [
+   "S. Stephani Protomartyris"
+  ],
+  "12-27": [
+   "S. Joanni Apostoli"
+  ],
+  "12-28": [
+   "Ss. Innocetium"
+  ],
+  "12-29": [
+   "Die quinta infra octavam Nativitati"
+  ],
+  "12-31": [
+   "Die septima infra octavam Nativitati"
+  ]
+ }
+}

@@ -1,0 +1,4 @@
+# Days to show the plain fallback panel instead of the Callot plate.
+# One MM-DD per line. The reader sits where others can see it, and many of the
+# plates are martyrdoms; list any day whose plate should not be shown.
+# Rebuild after editing: see README.md.
