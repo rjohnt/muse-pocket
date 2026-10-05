@@ -19,6 +19,13 @@ have not yet been verified on the reader.
   need review. Modern Hours texts are not yet included, and unavailable dates or
   traditions are clearly marked.
 
+- **Tabula:** an altar card for a reader mounted where you can see it, in Latin
+  only: the saint of the day from Jacques Callot's 1636 etchings (the Met's CC0
+  impressions), the day and Hour, the Hour's versicle and response with a large
+  initial, and one line of status for your own agents. Plates are bundled for
+  the same 32 days as the prayers; a skip list replaces any plate with a plain
+  panel. See [the Tabula guide](tools/tabula/README.md).
+
 ## Screenshots
 
 The Muse screenshot shows the running Mac preview with Geraldo’s delivered avatar
@@ -47,7 +54,7 @@ Mac adapter owns CoreBluetooth pairing and the encrypted SDK session; this fork
 owns the Pocket UI and commands.
 
 ```sh
-.venv-preview/bin/python -m pytest tools/mac_preview
+.venv-preview/bin/python -m pytest tools/mac_preview tools/tabula
 ```
 
 See [prayer-pack provenance and regeneration](tools/office/README.md). This is a
@@ -66,7 +73,9 @@ The firmware carries the same screens as the preview, drawn for the reader’s
 - **Hours:** the dated offices, built into the image, read a page at a time with
   each Latin line above its own translation.
 - **Prayers:** common prayers, opened from the beads at the end of the hour strip.
-- **Settings:** frontlight, refresh, orientation, Hours text size, tradition,
+- **Tabula:** the altar card above, chosen with **Mode** in Settings and drawn
+  from the same pack and layout as the preview's.
+- **Settings:** mode, frontlight, refresh, orientation, Hours text size, tradition,
   clock format, timezone, sleep and the return to CrossPoint.
 
 Right moves forward, Left moves back, Power returns to Muse, and holding Right

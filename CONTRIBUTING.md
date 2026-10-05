@@ -15,6 +15,9 @@ python3 tools/check_public_tree.py
 git diff --check
 ```
 
+`test_tabula.py` compares the firmware's Tabula panel with the reference
+composer in `tools/tabula`, pixel for pixel; change the two together.
+
 The focused tests verify private packaging integrity, rejection of wrong-chip or
 corrupted images, and the recovery digest. They do not verify a physical panel,
 the Muse service or a real recovery round trip.

@@ -97,3 +97,28 @@ is too long, then sources from the end, with an ellipsis. With no document the
 foot is left empty.
 
 This line is for personal sources only. Do not point it at work systems.
+
+## How the status line reaches the reader
+
+The reader takes the document through one function, `pocket_set_tabula_status`,
+and keeps the last accepted line in flash. Two routes feed it; neither puts an
+address or a credential in the source.
+
+1. **Your own content backend (the intended route).** The private packager can
+   already give the reader the address and token of a server of yours
+   (`--backend-stdin`, see `docs/build.md`), and the reader fetches from it by
+   itself over Wi-Fi. That server serves the status document at
+   `GET <address>/tabula`, with the reader's bearer token and an `ETag`. No
+   computer has to be awake and nothing new is stored on the reader.
+2. **A Muse command.** `pocket.set_tabula_status` carries the same document
+   over the paired connection, as the Watchlist does.
+
+The server's document also has `date`, `hour` and `panel_id`. The reader ignores
+them: it draws the panel itself from the bundled pack and its own clock.
+
+The backend fetch task (`esp32/main/pocket_backend.cpp`) is not on the branch
+this was written on, so only route 2 is wired up here. Joining route 1 is a few
+lines in that task, next to the Mass and reading-list fetches: every five
+minutes request `<address>/tabula`, and on a `200` pass the body, with a
+terminating zero, to `pocket_set_tabula_status`. That has not been written or
+run.

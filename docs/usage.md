@@ -19,6 +19,9 @@ view reads a dated prayer pack built into the firmware and needs no Muse.
   strip and read in the same way. In the list, **Right** moves the marker and
   **Power** opens the marked prayer; **Power** again returns to the list.
 
+- **Tabula:** an altar card for a reader left standing where you can see it. See
+  [Tabula](#tabula) below.
+
 Tap the hour line to open Hours, a tab to open a card, the gear for Settings and
 the cross to return to Muse. In Hours, tap the right of the text for the next page
 and the left third for the previous one. Turning a page holds the hour you are
@@ -41,6 +44,7 @@ Left to move through the rows and **Power** to change the selected setting.
 
 | Setting | Choices |
 | --- | --- |
+| Mode | Muse, Hours or Tabula: the screen the reader rests on, and starts on |
 | Brightness | Off, 5, 10, 25, 50, 75 or 100% |
 | Warmth | Cool/warm balance |
 | Refresh | 2, 5, 15 or 30 seconds |
@@ -72,6 +76,7 @@ refresh; the display also performs a full refresh after ten incremental updates.
 | `display.show_animation` | None | Return to the neutral placeholder icon |
 | `pocket.set_watch_digest` | `payload`, a JSON string | Replace the watch list |
 | `pocket.set_next_up` | `payload`, a JSON string | Replace the next event |
+| `pocket.set_tabula_status` | `payload`, a JSON string | Replace Tabula's status line |
 | `pocket.get_status` | None | Connection, accepted command count, last command |
 
 The watch payload has `updated` and up to ten `items`, each with `label`,
@@ -113,6 +118,62 @@ the current character is held in memory.
 
 This is a request to the Muse, not a guaranteed activity subscription. The Muse
 must execute the display commands and decide when its activity has changed.
+
+## Tabula
+
+Tabula turns the reader into a small altar card, in Latin only:
+
+- the saint of the day from Jacques Callot's *Les Images de tous les Saincts et
+  Saintes de l'Année* (1636), lettered on the plate with the name and date;
+- the day and the Hour, such as `FERIA II · AD TERTIAM`;
+- the Hour's versicle and response from the prayer pack, with a large initial;
+- one line of status for your own agents, if any has been sent.
+
+To switch to it, hold **Right** for Settings and press **Power** on **Mode**
+until it reads Tabula. The reader goes straight there, and starts there after a
+restart. Change Mode again to leave. On Tabula, **Right** and **Left** do
+nothing, **Power** gives a clean refresh, and holding **Right** or tapping the
+top right corner opens Settings.
+
+The screen follows the clock: the versicle changes with the Hour and the plate
+with the day, counted as the Hours screen counts it, so the night before Matins
+still belongs to the previous day. A new plate is drawn with a full refresh; a
+new Hour or status line with an ordinary one, and the tenth of those in a row is
+full. Until the clock is set, the screen shows a plain panel and `HORA IGNOTA`.
+
+Plates are bundled for the days of the prayer pack, October 2–November 2, 2026.
+Callot's calendar is the Roman one of 1636, so his saint is often not the feast
+the monastic office keeps that day; `tools/tabula/COVERAGE.md` lists every day.
+Outside those days the plain panel is shown, with the versicle that opens every
+Hour.
+
+### Skip list
+
+Many plates are martyrdoms and some show nudity. To keep a day's plate off the
+screen, add its `MM-DD` to `tools/tabula/skip.txt`, then build and install the
+firmware again. That day shows the plain panel instead. The list ships empty.
+
+### Status line
+
+`pocket.set_tabula_status` takes a JSON string: `updated`, and `status`, up to
+six sources each with `name` (24 bytes), `state` (16), an optional `note` (80)
+and `checked`. Times are Unix seconds or ISO 8601 with an offset; `checked` 0
+means the source has never reported. A source checked more than a day ago, or
+never, is drawn in a dotted box, as stale Watchlist cards are. Notes are dropped
+when the line is too long, then sources from the end. The last line is kept in
+flash with the cards. A payload that does not match is refused and the previous
+line stays.
+
+```json
+{"updated": 1791210000, "status": [{"name": "inbox", "state": "clear", "checked": 1791209880}]}
+```
+
+Use this line for personal sources only. It is shown on a screen other people
+can read; do not send it work data.
+
+The same document can come from your own content backend, so the line stays
+current without a computer nearby: see
+[how the status line reaches the reader](../tools/tabula/README.md#how-the-status-line-reaches-the-reader).
 
 ## Troubleshooting
 
