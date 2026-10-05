@@ -24,7 +24,7 @@ constexpr int STRIP_L = 24, STRIP_R = 414, BODY_TOP = 186, REST_TOP = 110, BODY_
 // The beads at the end of the hour strip open the common prayers.
 constexpr int BEADS_L = 420, BEADS_R = 456, PRAYER_TOP = 116, PRAYER_REST = 58, LIST_TOP = 112, LIST_PITCH = 56;
 constexpr int PRAYERS_RITE = 2, MAX_PRAYERS = 11;
-constexpr int ROWS_Y = 96, ROW_PITCH = 56;
+constexpr int ROWS_Y = 90, ROW_PITCH = 46;
 constexpr uint8_t GREY = 0xb0;
 // Clear Creek's published ordinary schedule, minutes after local midnight.
 constexpr int TIMES[8] = {315, 375, 480, 600, 770, 875, 1080, 1225};
@@ -425,13 +425,27 @@ void settings(Raster& r, const State& s) {
     for (int i = 0; i < s.row_count; ++i) {
         int y = ROWS_Y + i * ROW_PITCH;
         if (i == s.selected) {
-            r.rect(LEFT - 10, y - 14, WIDE + 20, 2); r.rect(LEFT - 10, y + 38, WIDE + 20, 2);
+            r.rect(LEFT - 10, y - 10, WIDE + 20, 2); r.rect(LEFT - 10, y + 32, WIDE + 20, 2);
             r.text("\xe2\x80\xba", LEFT - 4, y);
         }
         r.text(fit(s.rows[i] ? s.rows[i] : "", Face::UI, WIDE - 24), LEFT + 22, y);
     }
-    r.text("RIGHT: next row    POWER: change", LEFT, 760, Face::Small);
+    r.text("RIGHT: next row    POWER: change", LEFT, 762, Face::Small);
     r.text("Hold POWER on Return to restore CrossPoint", LEFT, 778, Face::Small);
+}
+// Tabula follows the clock like the Muse screen's hour line, whatever hour
+// was last being read, and always in the monastic order of eight Hours.
+void tabula(uint8_t* canvas, const State& s) {
+    State now = s;
+    now.following = true;
+    now.rite = 0;
+    Hours h = hours(now);
+    int y = h.date / 10000, m = h.date / 100 % 100, d = h.date % 100;
+    // Sakamoto's day of the week, 0 for Sunday.
+    static const int shift[] = {0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4};
+    int weekday = 0;
+    if (h.valid) { int year = y - (m < 3); weekday = (year + year / 4 - year / 100 + year / 400 + shift[m - 1] + d) % 7; }
+    pocket_tabula::render(canvas, h.date, weekday, h.active, h.valid, s.tabula, s.now);
 }
 }  // namespace
 
@@ -500,15 +514,18 @@ void render(uint8_t* canvas, const State& s) {
     case View::Prayers: prayers(r, s, h); break;
     case View::Settings: settings(r, s); break;
     case View::Sleeping: muse(r, canvas, s, h); break;
+    case View::Tabula: tabula(canvas, s); break;
     }
 }
 Hit hit(const State& s, int x, int y) {
     if (x < 0 || x >= W || y < 0 || y >= H) return {};
     if (s.view == View::Sleeping) return {};
+    // Tabula has no controls drawn on it; its top right corner opens Settings.
+    if (s.view == View::Tabula) return x >= GEAR_X - 30 && y < 80 ? Hit{Action::Settings, 0} : Hit{};
     if (s.view == View::Settings) {
         if (y < RULE_Y + 8) return {Action::Muse, 0};
-        int row = (y - (ROWS_Y - 14)) / ROW_PITCH;
-        if (y >= ROWS_Y - 14 && row < s.row_count) return {Action::Row, row};
+        int row = (y - (ROWS_Y - 10)) / ROW_PITCH;
+        if (y >= ROWS_Y - 10 && row < s.row_count) return {Action::Row, row};
         return {};
     }
     if (y < RULE_Y + 4) {

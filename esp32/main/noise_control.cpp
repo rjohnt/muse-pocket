@@ -1437,6 +1437,9 @@ static char *build_register_json(void) {
     cJSON* next_required=cJSON_CreateObject();
     cJSON_AddItemToObject(next_required,"payload",string_param("Serialized JSON event"));
     add_command(commands,"pocket.set_next_up","Replace the next event. Send JSON as the payload string: updated, title, when, ends (ISO times with offsets), detail. Empty title clears it. Countdown is computed on the device.",next_required,nullptr);
+    cJSON* tabula_required=cJSON_CreateObject();
+    cJSON_AddItemToObject(tabula_required,"payload",string_param("Serialized JSON status"));
+    add_command(commands,"pocket.set_tabula_status","Replace the one-line agent status on the Tabula screen. Send JSON as the payload string: updated, status (max 6), each with name, state, optional note, checked. Times are Unix seconds or ISO with an offset; checked 0 means never reported. Personal sources only.",tabula_required,nullptr);
     add_command(commands,"pocket.get_status","Verify the display: connection state, accepted command count, last command; no private display content.",nullptr,nullptr);
 #endif
     cJSON_AddItemToObject(params, "commands_v2", commands);

@@ -4,11 +4,12 @@
 #pragma once
 #include <cstddef>
 #include <cstdint>
+#include "tabula.h"
 
 namespace pocket_ui {
 constexpr int W = 480, H = 800, AVATAR = 480, AVATAR_Y = 88;
-constexpr int MAX_WATCHES = 10, MAX_ROWS = 12, WATCHES_PER_PAGE = 5;
-enum class View { Muse, Watches, NextUp, Hours, Prayers, Settings, Sleeping };
+constexpr int MAX_WATCHES = 10, MAX_ROWS = 14, WATCHES_PER_PAGE = 5;
+enum class View { Muse, Watches, NextUp, Hours, Prayers, Settings, Sleeping, Tabula };
 struct Watch { char label[81]; char state[33]; char note[201]; int64_t checked; };
 struct Cards {
     bool has_watches = false; int64_t watches_updated = 0; int watch_count = 0; Watch watches[MAX_WATCHES] = {};
@@ -33,6 +34,7 @@ struct State {
     const char* rows[MAX_ROWS] = {};
     int row_count = 0, selected = 0;
     const Cards* cards = nullptr;
+    const pocket_tabula::Status* tabula = nullptr;  // Tabula: the status line, or null
 };
 struct Hours {
     bool valid; int minute, active, reading; uint32_t date;  // date is yyyymmdd

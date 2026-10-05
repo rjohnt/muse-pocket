@@ -22,6 +22,9 @@ void pocket_set_frontlight(int brightness, int warmth);
 // A rejected payload leaves the previous card in place.
 bool pocket_set_watch_digest(const char* payload);
 bool pocket_set_next_up(const char* payload);
+// Tabula's status line: the JSON document described in tools/tabula/README.md.
+// A rejected payload leaves the previous line in place.
+bool pocket_set_tabula_status(const char* payload);
 void pocket_note_command(const char* command);
 // The setup button, once setup is complete, steps back: previous page, list
 // item, screen or settings row.

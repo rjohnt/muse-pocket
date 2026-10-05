@@ -37,14 +37,15 @@ def faces():
     for first, second in pack.verses().values():
         text |= set(first) | set(second)
     out = [(f"Text {size}", "serif", size, line, text) for size, line in TEXT_SIZES]
-    # The initial stands two lines tall; EB Garamond's capitals are 0.65 em.
-    out += [(f"Initial {size}", "serif", round((2 * line - 14) / 0.65), 2 * line, set(CAPITALS)) for size, line in TEXT_SIZES]
+    # The initial stands in a box two lines tall, with room for its ground;
+    # EB Garamond's capitals are 0.65 em.
+    out += [(f"Initial {size}", "serif", round((2 * line - 40) / 0.65), 2 * line, set(CAPITALS)) for size, line in TEXT_SIZES]
     out.append(("Capitals", "serif", 21, 26, set(CAPITALS + "0123456789 ·.")))
     out.append(("Small", "sans", 15, 20, set(ASCII + LATIN1 + "·…")))
     return out
 
 
-def bake(font, cmap, chars):
+def bake(font, cmap, chars, tall=0):
     glyphs, bits = [], bytearray()
     for ch in sorted(chars):
         if ord(ch) not in cmap:
@@ -53,6 +54,8 @@ def bake(font, cmap, chars):
         w, h = mask.size
         if w > 255 or h > 255:
             raise SystemExit(f"U+{ord(ch):04X} is too large to store")
+        if tall and h > tall:
+            raise SystemExit(f"U+{ord(ch):04X} is too tall for the initial's box")
         packed = bytearray((w * h + 7) // 8)
         for y in range(h):
             for x in range(w):
@@ -76,7 +79,9 @@ def main():
     at = 8 + 16 * len(listed)
     heads, body = b"", b""
     for name, family, size, line, chars in listed:
-        glyphs, bits = bake(ImageFont.truetype(paths[family], size), cmaps[family], chars)
+        # An initial must fit inside its ruled box: see draw_initial in compose.py.
+        glyphs, bits = bake(ImageFont.truetype(paths[family], size), cmaps[family], chars,
+                            line - 20 if name.startswith("Initial") else 0)
         table = b"".join(glyphs)
         heads += struct.pack("<IIIHH", len(glyphs), at + len(body), at + len(body) + len(table), line, size)
         body += table + bits

@@ -31,13 +31,16 @@ extern "C" {
 // Dated prayer pack built from tools/office/office-pack.json at compile time.
 extern const uint8_t office_pack_start[] asm("_binary_office_bin_start");
 extern const uint8_t office_pack_end[] asm("_binary_office_bin_end");
+// Type, plates and versicles for Tabula, packed by tools/tabula/pack.py.
+extern const uint8_t tabula_pack_start[] asm("_binary_tabula_bin_start");
+extern const uint8_t tabula_pack_end[] asm("_binary_tabula_bin_end");
 
 namespace {
 using pocket_ui::Action;
 using pocket_ui::View;
 constexpr int W=pocket_ui::W, H=pocket_ui::H, AVATAR=pocket_ui::AVATAR, AVATAR_Y=pocket_ui::AVATAR_Y;
 // Settings rows. Recovery needs a deliberate hold and is never activated by a tap.
-enum { ROW_LIGHT, ROW_WARMTH, ROW_CADENCE, ROW_FLIP, ROW_TEXT, ROW_RITE, ROW_CLOCK, ROW_ZONE, ROW_SLEEP, ROW_RECOVERY, ROW_BACK, ROW_KEPT, ROWS };
+enum { ROW_MODE, ROW_LIGHT, ROW_WARMTH, ROW_CADENCE, ROW_FLIP, ROW_TEXT, ROW_RITE, ROW_CLOCK, ROW_ZONE, ROW_SLEEP, ROW_RECOVERY, ROW_BACK, ROW_KEPT, ROWS };
 const char* const text_sizes[]={"small","medium","large"};
 constexpr int64_t CLOCK_VALID_AFTER=1700000000;
 const char* const zone_names[]={"Central","UTC","Eastern","Mountain","Pacific","Rome","London"};
@@ -53,6 +56,10 @@ TaskHandle_t renderer;
 uint8_t *canvas, *avatar, *staging, *frame, *shown;
 bool custom_avatar=false, custom_status=false, loading=false, menu=false, flipped=false, sleeping=false;
 bool recovery=false, force_full=true, initialized=false;
+// Mode: which screen the reader rests on. Neither set is Muse.
+bool hours_mode=false, tabula_mode=false;
+uint32_t tabula_date=0;
+pocket_tabula::Status tabula_status;
 // Reading state for the pages reached from the Muse screen.
 View page_view=View::Muse;
 bool following=true, h12=false, interactive=false, sntp_started=false;
@@ -104,7 +111,7 @@ void save_settings() {
     nvs_set_u8(h,"light",brightness); nvs_set_u8(h,"warmth",warmth);
     nvs_set_u8(h,"cadence",cadence); nvs_set_u8(h,"flip",flipped);
     nvs_set_u8(h,"rite",rite); nvs_set_u8(h,"h12",h12); nvs_set_u8(h,"zone",zone);
-    nvs_set_u8(h,"tsize",text_size);
+    nvs_set_u8(h,"tsize",text_size);nvs_set_u8(h,"hours",hours_mode);nvs_set_u8(h,"tabula",tabula_mode);
     nvs_commit(h); nvs_close(h);
 }
 void light(int b, int warm) {
@@ -135,6 +142,9 @@ void light_init() {
         if(nvs_get_u8(h,"h12",&value)==ESP_OK) h12=value!=0;
         if(nvs_get_u8(h,"zone",&value)==ESP_OK&&value<ZONES) zone=value;
         if(nvs_get_u8(h,"tsize",&value)==ESP_OK&&value<3) text_size=value;
+        if(nvs_get_u8(h,"hours",&value)==ESP_OK) hours_mode=value!=0;
+        if(nvs_get_u8(h,"tabula",&value)==ESP_OK) tabula_mode=value!=0;
+        if(tabula_mode) page_view=View::Tabula; else if(hours_mode) page_view=View::Hours;
         size_t length=sizeof(custom_name);
         if(nvs_get_str(h,"name",custom_name,&length)!=ESP_OK) custom_name[0]=0;
         nvs_close(h);
@@ -196,7 +206,7 @@ void default_character() {
 constexpr uint32_t CACHE_MAGIC=0x4b43504d, CACHE_VERSION=1;  // "MPCK"
 constexpr size_t TEXT_AT=0, TEXT_SPAN=0x2000, IMAGE_AT=0x2000, PIXELS=static_cast<size_t>(W)*AVATAR;
 struct CacheHeader { uint32_t magic, version, crc, length; };
-struct CacheText { bool has_status; char status[241]; pocket_ui::Cards cards; };
+struct CacheText { bool has_status; char status[241]; pocket_ui::Cards cards; pocket_tabula::Status tabula; };
 static_assert(sizeof(CacheHeader)+sizeof(CacheText)<=TEXT_SPAN,"cached text must fit its sectors");
 const esp_partition_t* cache_part=nullptr;
 size_t image_span=0;      // sectors given to the character, 0 when it is not kept
@@ -264,6 +274,9 @@ void cache_load() {
         cards.watch_count=std::clamp(cards.watch_count,0,pocket_ui::MAX_WATCHES);
         for(auto& w:cards.watches) {w.label[sizeof(w.label)-1]=0;w.state[sizeof(w.state)-1]=0;w.note[sizeof(w.note)-1]=0;}
         cards.title[sizeof(cards.title)-1]=0;cards.detail[sizeof(cards.detail)-1]=0;
+        tabula_status=text->tabula;
+        tabula_status.count=std::clamp(tabula_status.count,0,pocket_tabula::MAX_SOURCES);
+        for(auto& source:tabula_status.sources) {source.name[sizeof(source.name)-1]=0;source.state[sizeof(source.state)-1]=0;source.note[sizeof(source.note)-1]=0;}
     }
     CacheHeader h;
     if(!image_bits||!cache_header(IMAGE_AT,&h)) return;
@@ -288,7 +301,7 @@ void cache_save(bool now) {
     if(text) {
         record.reset(new CacheText());
         record->has_status=custom_status;snprintf(record->status,sizeof(record->status),"%s",status);
-        record->cards=cards;text_dirty=false;
+        record->cards=cards;record->tabula=tabula_status;text_dirty=false;
     }
     if(image) {
         image_dirty=false;
@@ -327,8 +340,9 @@ pocket_ui::State snapshot() {
     s.connected=state==LED_STATE_WS_CONNECTED; s.battery=battery;
     s.avatar=custom_avatar?avatar:nullptr;
     s.now=time(nullptr); s.clock_valid=clock_valid(s.now); s.h12=h12; s.rite=rite; s.text_size=text_size; s.zone=zone_names[zone];
-    s.following=following; s.reading_hour=reading_hour; s.cards=&cards;
+    s.following=following; s.reading_hour=reading_hour; s.cards=&cards; s.tabula=&tabula_status;
     s.prayer=prayer; s.prayer_selected=prayer_selected;
+    snprintf(setting_rows[ROW_MODE],48,"Mode: %s",tabula_mode?"Tabula":hours_mode?"Hours":"Muse");
     if(brightness) snprintf(setting_rows[ROW_LIGHT],48,"Brightness: %d%%",brightness);
     else snprintf(setting_rows[ROW_LIGHT],48,"Brightness: off");
     snprintf(setting_rows[ROW_WARMTH],48,"Warmth: %d%%",warmth);
@@ -358,6 +372,12 @@ pocket_ui::State snapshot() {
 }
 void compose() {
     pocket_ui::State s=snapshot();
+    // A new day brings a new plate, and a picture change gets a full refresh.
+    if(s.view==View::Tabula) {
+        pocket_ui::State clock=s;clock.following=true;clock.rite=0;
+        uint32_t date=pocket_ui::hours(clock).date;
+        if(date!=tabula_date) {tabula_date=date;force_full=true;}
+    }
     pocket_ui::render(canvas,s);
     if(!s.avatar&&(s.view==View::Muse||s.view==View::Sleeping)) default_character();
 }
@@ -422,6 +442,7 @@ void sleep_now() {
     while(digitalRead(3)==LOW) delay(30);
     esp_deep_sleep_start();
 }
+void show(View view);
 void activate() {
     xSemaphoreTake(lock_,portMAX_DELAY);
     switch(selected) {
@@ -431,6 +452,12 @@ void activate() {
         int next=0;
         for(int level:levels) if(level>brightness) {next=level;break;}
         brightness=next;light(brightness,warmth);save_settings();break;
+    }
+    case ROW_MODE: {
+        // Muse, Hours, Tabula in turn. Chosen deliberately, so go straight there.
+        int next=(tabula_mode?2:hours_mode?1:0)+1;
+        hours_mode=next==1;tabula_mode=next==2;save_settings();
+        show(tabula_mode?View::Tabula:hours_mode?View::Hours:View::Muse);menu=false;force_full=true;break;
     }
     case ROW_WARMTH: warmth=(warmth+25)%125; light(brightness,warmth);save_settings();break;
     case ROW_CADENCE: for(int i=0;i<4;++i) if(cadence==cadences[i]) {cadence=cadences[(i+1)%4];break;} save_settings();break;
@@ -510,6 +537,7 @@ void advance() {
         bool more=page<pocket_ui::page_count(s)-1;
         switch(page_view) {
         case View::Muse: show(View::Watches);break;
+        case View::Tabula: break;  // Tabula stays put; the Mode setting leaves it.
         case View::Watches: if(more) turn(s,1); else show(View::NextUp);break;
         case View::NextUp: show(View::Hours);break;
         case View::Hours: if(more) turn(s,1); else show(View::Prayers);break;
@@ -586,7 +614,7 @@ void input_task(void*) {
             if(restore) pocket_return_to_crosspoint(); else sleep_now();
         }
         if(!power&&was_power&&!fired&&now-power_down>=50000) {
-            xSemaphoreTake(lock_,portMAX_DELAY);bool in_menu=menu,away=page_view!=View::Muse,praying=page_view==View::Prayers;
+            xSemaphoreTake(lock_,portMAX_DELAY);bool in_menu=menu,away=page_view!=View::Muse&&page_view!=View::Tabula,praying=page_view==View::Prayers;
             int listed=prayer,marked=prayer_selected;xSemaphoreGive(lock_);
             if(in_menu) activate();
             // Among the prayers POWER opens the marked one, or returns to the list.
@@ -652,6 +680,7 @@ extern "C" bool led_status_init(void) {
     cache_load();
     apply_zone();
     pocket_ui::set_pack(office_pack_start,office_pack_end-office_pack_start);
+    if(!pocket_tabula::open(tabula_pack_start,tabula_pack_end-tabula_pack_start)) ESP_LOGE(TAG,"Tabula pack is malformed; the screen will be blank");
     pinMode(7,INPUT_PULLUP);pinMode(3,INPUT_PULLUP);
     if(xTaskCreate(render_task,"pocket_display",12288,nullptr,3,&renderer)!=pdPASS)return false;
     if(xTaskCreate(input_task,"pocket_input",12288,nullptr,2,nullptr)!=pdPASS)return false;
@@ -718,7 +747,7 @@ extern "C" bool led_status_draw_rect(int x,int y,int w,int h,const uint16_t* pix
 }
 extern "C" void led_status_draw_done(void) {
     if(!renderer)return;
-    xSemaphoreTake(lock_,portMAX_DELAY);std::swap(avatar,staging);custom_avatar=true;loading=false;force_full=true;image_dirty=true;xSemaphoreGive(lock_);
+    xSemaphoreTake(lock_,portMAX_DELAY);std::swap(avatar,staging);custom_avatar=true;loading=false;force_full=force_full||page_view!=View::Tabula;image_dirty=true;xSemaphoreGive(lock_);
     await_frame(request_frame());
 }
 extern "C" void led_status_show_animation(void) {
@@ -739,7 +768,7 @@ extern "C" void pocket_image_abort(void) {
 }
 extern "C" bool pocket_image_complete(void) {
     if(!renderer)return false;
-    xSemaphoreTake(lock_,portMAX_DELAY);std::swap(avatar,staging);custom_avatar=true;loading=false;force_full=true;image_dirty=true;xSemaphoreGive(lock_);
+    xSemaphoreTake(lock_,portMAX_DELAY);std::swap(avatar,staging);custom_avatar=true;loading=false;force_full=force_full||page_view!=View::Tabula;image_dirty=true;xSemaphoreGive(lock_);
     return await_frame(request_frame());
 }
 
@@ -802,6 +831,47 @@ extern "C" bool pocket_set_next_up(const char* payload) {
     cards.has_next=next->title[0]!=0;cards.next_updated=next->next_updated;cards.when=next->when;cards.ends=next->ends;
     memcpy(cards.title,next->title,sizeof(cards.title));memcpy(cards.detail,next->detail,sizeof(cards.detail));
     accepted("pocket.set_next_up");touch_text();
+    xSemaphoreGive(lock_);notify();return true;
+}
+// Tabula's status line. Times may be Unix seconds or ISO 8601 with an offset.
+namespace {
+bool moment_field(const cJSON* object,const char* key,int64_t* out) {
+    const cJSON* item=cJSON_GetObjectItem(object,key);
+    if(cJSON_IsNumber(item)) {
+        if(item->valuedouble<0||item->valuedouble>4e12) return false;
+        *out=static_cast<int64_t>(item->valuedouble);return true;
+    }
+    return time_field(object,key,out);
+}
+bool plain(const char* text) {
+    for(const char* c=text;*c;++c) if(static_cast<unsigned char>(*c)<32) return false;
+    return true;
+}
+}
+extern "C" bool pocket_set_tabula_status(const char* payload) {
+    if(!renderer||!payload||strlen(payload)>4096) return false;
+    cJSON* root=cJSON_Parse(payload);
+    std::unique_ptr<pocket_tabula::Status> next(new pocket_tabula::Status());
+    int64_t updated=0;
+    const cJSON* sources=cJSON_GetObjectItem(root,"status");
+    bool ok=cJSON_IsObject(root)&&moment_field(root,"updated",&updated)&&cJSON_IsArray(sources)&&cJSON_GetArraySize(sources)<=pocket_tabula::MAX_SOURCES;
+    const cJSON* item=nullptr;
+    if(ok) cJSON_ArrayForEach(item,sources) {
+        pocket_tabula::Source& s=next->sources[next->count];
+        ok=cJSON_IsObject(item)&&text_field(item,"name",s.name,sizeof(s.name),true)&&text_field(item,"state",s.state,sizeof(s.state),true)
+            &&s.name[0]&&s.state[0]&&plain(s.name)&&plain(s.state)&&moment_field(item,"checked",&s.checked);
+        // A null note is the same as none.
+        const cJSON* note=cJSON_GetObjectItem(item,"note");
+        if(ok&&note&&!cJSON_IsNull(note)) ok=text_field(item,"note",s.note,sizeof(s.note),true)&&plain(s.note);
+        if(!ok) break;
+        ++next->count;
+    }
+    cJSON_Delete(root);
+    if(!ok) return false;
+    seed_clock(updated);
+    xSemaphoreTake(lock_,portMAX_DELAY);
+    tabula_status=*next;
+    accepted("pocket.set_tabula_status");touch_text();
     xSemaphoreGive(lock_);notify();return true;
 }
 extern "C" void pocket_previous(void) {

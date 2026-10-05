@@ -123,3 +123,19 @@ if(CONFIG_HOMEHUB_LED_BACKEND_XTEINK_X4_PRO)
     add_custom_target(office_pack DEPENDS "${office_bin}")
     target_add_binary_data(${COMPONENT_LIB} "${office_bin}" BINARY DEPENDS office_pack)
 endif()
+
+if(CONFIG_HOMEHUB_LED_BACKEND_XTEINK_X4_PRO)
+    # Tabula: its renderer, and one pack of type, plates and versicles built
+    # from the tracked files so the reader and the composer cannot drift.
+    target_sources(${COMPONENT_LIB} PRIVATE "office/tabula.cpp")
+    idf_build_get_property(python PYTHON)
+    set(tabula_dir "${CMAKE_CURRENT_LIST_DIR}/../../tools/tabula")
+    set(tabula_bin "${CMAKE_BINARY_DIR}/tabula.bin")
+    file(GLOB tabula_plates CONFIGURE_DEPENDS "${tabula_dir}/plates/*.png")
+    add_custom_command(OUTPUT "${tabula_bin}"
+        COMMAND "${python}" "${tabula_dir}/pack.py" "${tabula_bin}"
+        DEPENDS "${tabula_dir}/pack.py" "${tabula_dir}/type.mtf" "${tabula_dir}/plates.json" "${tabula_dir}/skip.txt"
+                "${CMAKE_CURRENT_LIST_DIR}/../../tools/office/office-pack.json" ${tabula_plates} VERBATIM)
+    add_custom_target(tabula_pack DEPENDS "${tabula_bin}")
+    target_add_binary_data(${COMPONENT_LIB} "${tabula_bin}" BINARY DEPENDS tabula_pack)
+endif()

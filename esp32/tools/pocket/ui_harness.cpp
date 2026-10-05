@@ -273,17 +273,70 @@ int main(int argc, char** argv) {
     State menu = s;
     menu.view = View::Settings;
     const char* rows[] = {"Brightness: 25%", "Warmth: 50%", "Refresh: every 5s", "Orientation: normal", "Tradition: Benedictine",
-                          "Clock: 24-hour", "Timezone: Central", "Sleep", "Return to CrossPoint", "Back to Muse"};
-    menu.row_count = 10;
-    for (int i = 0; i < 10; ++i) menu.rows[i] = rows[i];
+                          "Clock: 24-hour", "Timezone: Central", "Sleep", "Return to CrossPoint", "Back to Muse",
+                          "Mode: Tabula", "Hours text: medium", "Screen kept: yes (spiffs 80K)"};
+    menu.row_count = 13;
+    for (int i = 0; i < 13; ++i) menu.rows[i] = rows[i];
     CHECK(page_count(menu) == 1);
     menu.selected = 8;
     scene("settings", menu);
-    for (int i = 0; i < 10; ++i) {
-        Hit row = hit(menu, 200, 96 + i * 56 + 10);
+    // Thirteen rows, as the reader has, end above the hints at the foot.
+    CHECK(ink_between(90 + 12 * 46, 90 + 13 * 46 - 12) > 100);
+    for (int i = 0; i < 13; ++i) {
+        Hit row = hit(menu, 200, 90 + i * 46 + 10);
         CHECK(row.action == Action::Row && row.value == i);
     }
     CHECK(hit(menu, 200, 790).action == Action::None);
+
+    // Tabula: the altar-card screen. POCKET_TABULA names its pack; the pixels
+    // themselves are held to the reference composer by test_tabula.py.
+    if (const char* path = getenv("POCKET_TABULA")) {
+        std::ifstream tabula_file(path, std::ios::binary);
+        static std::vector<uint8_t> tabula_pack((std::istreambuf_iterator<char>(tabula_file)), std::istreambuf_iterator<char>());
+        CHECK(pocket_tabula::open(tabula_pack.data(), tabula_pack.size()));
+        pocket_tabula::Status sources;
+        sources.count = 2;
+        std::snprintf(sources.sources[0].name, sizeof(sources.sources[0].name), "inbox");
+        std::snprintf(sources.sources[0].state, sizeof(sources.sources[0].state), "clear");
+        sources.sources[0].checked = s.now - 600;
+        std::snprintf(sources.sources[1].name, sizeof(sources.sources[1].name), "backup");
+        std::snprintf(sources.sources[1].state, sizeof(sources.sources[1].state), "ok");
+        sources.sources[1].checked = s.now - 3 * 86400;
+        State card = s;
+        card.view = View::Tabula;
+        card.tabula = &sources;
+        // An hour held on the Hours screen must not hold Tabula back.
+        card.following = false;
+        card.reading_hour = 0;
+        scene("tabula", card);
+        CHECK(ink_between(14, 440) > 8000);    // the plate
+        CHECK(ink_between(456, 490) > 300);    // day and Hour
+        CHECK(ink_between(500, 762) > 3000);   // versicle and response
+        CHECK(ink_between(770, 800) > 200);    // status
+        int with_status = ink_between(764, 800);
+        // The same Hour gives the same panel; the next Hour a different one.
+        std::vector<uint8_t> first(canvas);
+        State same = card;
+        same.now += 600;
+        sources.sources[0].checked += 600;
+        render(canvas.data(), same);
+        CHECK(first == canvas);
+        State none = card;
+        parse_time("2026-10-03T15:00:00-05:00", &none.now);
+        render(canvas.data(), none);
+        CHECK(first != canvas);
+        card.tabula = nullptr;
+        scene("tabula-no-status", card);
+        CHECK(ink_between(764, 800) == 0 && with_status > 0);
+        State dark = unpaired;
+        dark.view = View::Tabula;
+        scene("tabula-noclock", dark);
+        CHECK(ink_between(14, 440) > 1000 && ink_between(500, 762) > 1000);
+        CHECK(page_count(card) == 1);
+        CHECK(hit(card, 460, 20).action == Action::Settings);
+        CHECK(hit(card, 240, 400).action == Action::None);
+        CHECK(hit(card, 240, 790).action == Action::None);
+    }
 
     State asleep = s;
     asleep.view = View::Sleeping;

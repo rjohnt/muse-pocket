@@ -1876,6 +1876,14 @@ static cJSON *on_ws_command(
         cJSON_AddBoolToObject(result,"ok",true);
         return result;
     }
+    if (strcmp(command, "pocket.set_tabula_status") == 0) {
+        cJSON* payload = cJSON_GetObjectItem(params, "payload");
+        if (!cJSON_IsString(payload) || !payload->valuestring || !pocket_set_tabula_status(payload->valuestring))
+            return command_error("invalid_params", "payload does not match the registered command schema; previous status kept");
+        cJSON* result = cJSON_CreateObject();
+        cJSON_AddBoolToObject(result,"ok",true);
+        return result;
+    }
     if (strcmp(command, "pocket.get_status") == 0) {
         const char* connection; int received; char last[32];
         pocket_get_status(&connection, &received, last, sizeof(last));

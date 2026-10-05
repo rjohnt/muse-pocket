@@ -211,36 +211,38 @@ def verse_layout(pack, size, versicle, response):
     if letter is None or not big.glyph(ord(letter)):
         letter, rest = None, versicle
     box = 2 * line if letter else 0
-    beside = column + box + 12 if letter else column
+    # The box is square unless a wide capital needs more room.
+    box_width = max(box - 6, big.glyph(ord(letter))[1] + 20) if letter else 0
+    beside = column + box_width + 18 if letter else column
     first = wrap(face, rest, lambda n: RIGHT - (beside if n < 2 else column))
     second = wrap(face, response, lambda n: RIGHT - column)
     above = max(len(first) * line, box)
     gap = line // 3
-    return dict(face=face, big=big, line=line, column=column, letter=letter, box=box, beside=beside,
+    return dict(face=face, big=big, line=line, column=column, letter=letter, box=box, box_width=box_width, beside=beside,
                 first=first, second=second, above=above, gap=gap,
                 height=above + gap + len(second) * line)
 
 
-def draw_initial(canvas, big, letter, x, y, box):
-    """The capital in a ruled square, on a ground of small lozenges."""
+def draw_initial(canvas, big, letter, x, y, box, across):
+    """The capital in a ruled box, on a ground of small lozenges."""
     top, side = y + 3, box - 6
-    canvas.rect(x, top, side, side)
-    canvas.rect(x + 2, top + 2, side - 4, side - 4, 255)
-    canvas.rect(x + 5, top + 5, side - 10, side - 10)
-    canvas.rect(x + 6, top + 6, side - 12, side - 12, 255)
+    canvas.rect(x, top, across, side)
+    canvas.rect(x + 2, top + 2, across - 4, side - 4, 255)
+    canvas.rect(x + 5, top + 5, across - 10, side - 10)
+    canvas.rect(x + 6, top + 6, across - 12, side - 12, 255)
     for py in range(10, side - 10):
-        for px in range(10, side - 10):
+        for px in range(10, across - 10):
             if (px + py) % 12 == 0 and (px - py) % 12 == 0:
                 canvas.diamond(x + px, top + py, 1)
     offset, w, h, _, _, _ = big.glyph(ord(letter))
-    gx, gy = x + (side - w) // 2, top + (side - h) // 2
+    gx, gy = x + (across - w) // 2, top + (side - h) // 2
     # Clear a margin round the letter so it stands free of the ground.
     for row in range(h):
         for col in range(w):
             bit = row * w + col
             if big.data[big.bits_at + offset + bit // 8] & (0x80 >> (bit % 8)):
                 canvas.rect(max(x + 7, gx + col - 3), max(top + 7, gy + row - 3),
-                            min(x + side - 7, gx + col + 4) - max(x + 7, gx + col - 3),
+                            min(x + across - 7, gx + col + 4) - max(x + 7, gx + col - 3),
                             min(top + side - 7, gy + row + 4) - max(top + 7, gy + row - 3), 255)
     canvas.bits(big.data, big.bits_at + offset, w, h, gx, gy, w)
 
@@ -262,7 +264,7 @@ def draw_verse(canvas, pack, versicle, response):
     y = VERSE_TOP + max(0, (room - height) // 2)
     canvas.text(face, packer.VERSICLE, LEFT, y)
     if layout["letter"]:
-        draw_initial(canvas, layout["big"], layout["letter"], column, y, layout["box"])
+        draw_initial(canvas, layout["big"], layout["letter"], column, y, layout["box"], layout["box_width"])
     for n, text in enumerate(first):
         if y + (n + 1) * line > VERSE_BOTTOM:
             break

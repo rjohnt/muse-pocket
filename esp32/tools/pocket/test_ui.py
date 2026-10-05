@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """Compile the portable Pocket screens on the host and run their checks."""
+import os
 import shutil
 import subprocess
 import sys
@@ -20,10 +21,13 @@ class PocketScreens(unittest.TestCase):
                             str(ROOT / "tools/office/office-pack.json"), str(pack),
                             "--prayers", str(ROOT / "tools/office/prayers.json")], check=True)
             sources = [Path(__file__).with_name("ui_harness.cpp")] + [OFFICE / name for name in
-                       ("ui.cpp", "pack.cpp", "raster.cpp", "font_data.cpp")]
+                       ("ui.cpp", "pack.cpp", "raster.cpp", "font_data.cpp", "tabula.cpp")]
             subprocess.run(["c++", "-std=c++20", "-O1", "-Wall", "-Wextra", "-Werror", "-o", str(binary),
                             *map(str, sources)], check=True)
-            result = subprocess.run([str(binary), str(pack)], capture_output=True, text=True)
+            tabula = Path(work) / "tabula.bin"
+            subprocess.run([sys.executable, str(ROOT / "tools/tabula/pack.py"), str(tabula)], check=True, capture_output=True)
+            result = subprocess.run([str(binary), str(pack)], capture_output=True, text=True,
+                                    env=dict(os.environ, POCKET_TABULA=str(tabula)))
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
