@@ -97,6 +97,12 @@ def parse_office(raw, hour):
             for a,b in zip(la,en):
                 m=verse(a)
                 blocks.append(dict(kind='prayer',latin=a,english=b,alignment='verse' if m else 'source-line'))
+    # Divinum Officium repeats the Latin in the English column when it has no
+    # translation for a text (the antiphons of some commons, for example).
+    # Carrying that through as a translation prints the Latin twice, so a
+    # repeated column means "no translation" and the Latin is shown once.
+    for b in blocks:
+        if b['english'].strip() and b['english'].strip()==b['latin'].strip(): b['english']=''
     if not blocks or not any(b['kind']=='prayer' for b in blocks): raise ValueError('Empty resolved office')
     if any(re.search(r'(^|\n)[@&][A-Za-z]',b['latin']) for b in blocks): raise ValueError('Unresolved source directive')
     return dict(title=title,hour=hour,blocks=blocks)

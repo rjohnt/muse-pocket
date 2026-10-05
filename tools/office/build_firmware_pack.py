@@ -142,6 +142,12 @@ def build(source, prayers=None):
         raise SystemExit("Unsupported office pack")
     entries, index_of, expanded = [], {}, {}
 
+    def translated(latin, english):
+        # A source that repeats the Latin in the English column has no
+        # translation for that text. Passing the repeat through would draw the
+        # Latin twice, so it is carried as "no translation" instead.
+        return "" if english.strip() and english.strip() == latin.strip() else english
+
     def entry(kind, latin, english):
         key = (kind, latin, english)
         if key not in index_of:
@@ -151,17 +157,18 @@ def build(source, prayers=None):
 
     for ident, block in data["texts"].items():
         kind = KINDS.get(block["kind"], 2)
-        if kind != 1 or not block["latin"].strip() or not block["english"].strip():
-            expanded[ident] = [entry(kind, clean(block["latin"]), clean(block["english"]))]
+        latin, english = block["latin"], translated(block["latin"], block["english"])
+        if kind != 1 or not latin.strip() or not english.strip():
+            expanded[ident] = [entry(kind, clean(latin), clean(english))]
             continue
-        parts = phrases(block["latin"], block["english"])
+        parts = phrases(latin, english)
         expanded[ident] = [entry(3 if n + 1 < len(parts) else 1, clean(la), clean(en))
                            for n, (la, en) in enumerate(parts)]
     offices = []
     for position, prayer in enumerate(json.loads(Path(prayers).read_text())["prayers"] if prayers else []):
         blocks = []
         for block in prayer["blocks"]:
-            latin, english = block.get("latin", ""), block.get("english", "")
+            latin, english = block.get("latin", ""), translated(block.get("latin", ""), block.get("english", ""))
             if block["kind"] != "prayer":
                 blocks.append(entry(KINDS.get(block["kind"], 2), clean(latin), clean(english)))
                 continue

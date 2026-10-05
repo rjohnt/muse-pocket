@@ -301,7 +301,10 @@ int flow(const pocket_office::Office& office, Raster* r, int target, int first_t
             // Each Latin phrase sits directly above its own translation.
             // A prayer with no Latin is set in the larger face itself.
             Face second = t.latin.empty() ? Face::Latin : Face::English;
-            auto latin = wrap(t.latin, Face::Latin, WIDE), english = wrap(t.english, second, WIDE);
+            auto latin = wrap(t.latin, Face::Latin, WIDE);
+            // A source that repeats the Latin in its English column has no
+            // translation for that text; drawing both would show it twice.
+            auto english = t.english == t.latin ? std::vector<std::string>{} : wrap(t.english, second, WIDE);
             // A phrase and its translation stay on one page when they can.
             int pair = static_cast<int>(latin.size()) * font(Face::Latin).line_height + static_cast<int>(english.size()) * font(second).line_height;
             if (y + pair > BODY_BOTTOM && y > top() && pair <= BODY_BOTTOM - BODY_TOP) { ++page; y = rest_top; }
